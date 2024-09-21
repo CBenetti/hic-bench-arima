@@ -17,9 +17,13 @@ endif
 
 set opt = "$1"
 
+if (! -e inputs/$results) then
+  (cd inputs; ln -s fastq $results)
+endif
+
 # setup
 set op = MAPS
-set inpdirs = "inpdirs/*"
+set inpdirs = "inputs"
 set results = results
 scripts-create-path $results/
 scripts-send2err "=== Operation = $op ============="
