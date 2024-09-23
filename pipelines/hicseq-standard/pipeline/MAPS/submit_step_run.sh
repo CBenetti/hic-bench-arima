@@ -1,4 +1,3 @@
-
 #!/bin/bash
 #SBATCH --job-name=MAPSCinzia # Job name
 #SBATCH --mail-type=END,FAIL # Mail events (NONE, BEGIN, END, FAIL, ALL)
@@ -11,6 +10,4 @@
 #SBATCH -p cpu_medium
 
 ./run
-
-
 

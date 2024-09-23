@@ -26,8 +26,18 @@
 # see https://github.com/ijuric/MAPS/tree/master/Arima_Genomics/README.md for installation help
 
 
+
 # Load environment
-module load r/4.3.2 samtools/1.9 bedtools/2.27.1 bwa/0.7.17 bcftools/1.10.2 htslib/1.10.2 macs2/2.1.1
+module unload r
+module unload python
+module load r/4.3.2
+module load bedtools/2.27.1
+module load bwa/0.7.17
+module load bcftools/1.10.2
+module load htslib/1.10.2
+module unload samtools
+module load samtools/1.10
+
 
 # please provide the path to the following tools:
 
@@ -422,7 +432,7 @@ if [ $feather -eq 1 ]; then
 	fi
 	cp "$(readlink -f $0)" $feather_output"/execution_script_copy"
 	chmod 777 $feather_output
-	ln -sfn $feather_output $feather_output_symlink
+	ln -sfn "$(pwd)/"$feather_output $feather_output_symlink
 else
 	feather_output=$(cd -P "$feather_output_symlink" && pwd)
 fi
@@ -439,7 +449,7 @@ if [ $maps -eq 1 ]; then
 	echo "third"
 	cp "$(readlink -f $0)" $maps_output"/execution_script_copy"
 	chmod 777 $maps_output
-	ln -sfn $maps_output $maps_output_symlink
+	ln -sfn "$(pwd)/"$maps_output $maps_output_symlink
 else
 	maps_output=$(cd -P "$maps_output_symlink" && pwd)
 fi
