@@ -26,7 +26,6 @@
 # see https://github.com/ijuric/MAPS/tree/master/Arima_Genomics/README.md for installation help
 
 
-
 # Load environment
 module unload r
 module unload python
@@ -37,7 +36,6 @@ module load bcftools/1.10.2
 module load htslib/1.10.2
 module unload samtools
 module load samtools/1.10
-
 
 # please provide the path to the following tools:
 
@@ -285,7 +283,7 @@ elif [ $organism == "hg38" ]; then
 fi
 
 optical_duplicate_distance=$([ $patterned_flowcell == 1 ] && echo 2500 || echo 100) # v1.9_update
-
+echo "${optical_duplicate_distance}"
 
 ############################################################################
 ###                           MAPS Pipeline                              ###
@@ -303,7 +301,6 @@ fastq2=$fastq_dir_with_file_prefix"[._]R2*"
 fastq_dir=$(dirname $fastq_dir_with_file_prefix)
 dataset_name=$(basename $fastq_dir_with_file_prefix)
 fastq_format=$(echo $fastq1 | sed 's/^.*[._]R1\(.*$\)/\1/')
-
 feather_output=$outdir"/feather_output/"$dataset_name"_"$DATE"/"
 if [ "$feather_output_symlink" == "" ]; then
 	feather_output_symlink=$outdir"/feather_output/"$dataset_name"_current"
@@ -324,7 +321,6 @@ long_bedpe_dir=$feather_output_symlink"/"
 short_bed_dir=$feather_output_symlink"/"
 maps_output=$outdir"/MAPS_output/"$dataset_name"_"$DATE"/"
 maps_output_symlink=$outdir"/MAPS_output/"$dataset_name"_current"
-
 ### Added support for multiple samples
 reads_all_duplicates=0
 reads_opt_duplicates=0
@@ -400,11 +396,16 @@ if [ $feather -eq 1 ]; then
 
 			echo -e "\nCalling $peak_type peaks using MACS2 ..."
 			shortVIP_BAM=$feather_output/tempfiles/$dataset_name".shrt.bam"
+			module unload r
+			module unload python
+			module load macs2/2.1.1
 			if [ $peak_type == "broad" ]; then
 				macs2 callpeak -t $shortVIP_BAM -n $dataset_name -g $genome --broad --nolambda --broad-cutoff 0.3 --outdir $outdir/MACS2_peaks/
 			elif [ $peak_type == "narrow" ]; then
 				macs2 callpeak -t $shortVIP_BAM -n $dataset_name -g $genome --broad --broad-cutoff 0.2 --outdir $outdir/MACS2_peaks/
 			fi
+			module unload macs2
+			module load r/4.3.2
 			rm $outdir/MACS2_peaks/${dataset_name}_peaks.gappedPeak
 			macs2_filepath=$outdir/MACS2_peaks/${dataset_name}_peaks.broadPeak
 

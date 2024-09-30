@@ -30,9 +30,9 @@ scripts-create-path $results/
 scripts-send2err "=== Operation = $op ============="
 set resources = 16,50G,24
 set cmd = "./code/code.main/scripts-qsub-wrapper-MAPS $resources ./code/maps.code.sh"
-
 # generate run script
 Rscript ./code/code.main/pipeline-master-explorer.r -v "$cmd" $results/$op "params/params.MAPSv2.sh" "$inpdirs" "" "sample" 1
 
 # run and wait until done!
 if ("$opt" != "--dry-run") scripts-submit-jobs ./$results/.db/run 3
+

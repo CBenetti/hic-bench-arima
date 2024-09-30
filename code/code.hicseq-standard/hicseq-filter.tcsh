@@ -16,6 +16,7 @@ set params = $2
 set branch = $3
 set objects = ($4)
 
+
 # run parameter script
 source $params
 
@@ -24,9 +25,13 @@ set genome = `./code/read-sample-sheet.tcsh $sheet "$objects" genome | sort -u`
 set enzyme = `./code/read-sample-sheet.tcsh $sheet "$objects" enzyme | sort -u`
 set genome_dir = inputs/genomes/$genome
 
+if ($branch == "") then
+$outdir
+endif
 
 # create path
 scripts-create-path $outdir/
+
 
 if (-e $branch/$objects[1]/alignments.bam) then
 #------------------------------------------------------------------------
@@ -153,6 +158,20 @@ else if ($enzyme == reg) then
 	
   ln -s ../../../../inputs/fastq/$objects/filtered.reg.gz ./
   cd ../../../../
+  goto done
+
+else if($enzyme == "Arima" && $#objects == 1 && $branch =~ *MAPS*) then
+#--------------------------------------------------------------------------------------------------------
+# Case 6: Arima specific pipeline - integration of MAPS Arima pipeline with HiC-bench
+#--------------------------------------------------------------------------------------------------------
+scripts-send2err "Processing hic.input from Arima pipeline."
+
+  echo 'outdir: '$outdir
+  echo 'objects: '$objects
+  set pat = `echo $outdir |sed 's:/*$::'| awk -F"/" '{for (i=1; i<=NF; i++) printf "../"; print ""}'`
+  cd $outdir
+  ln -sn "$pat"$branch/$objects/filtered.reg.gz filtered.reg.gz
+  cd $pat
   goto done
 
 else
