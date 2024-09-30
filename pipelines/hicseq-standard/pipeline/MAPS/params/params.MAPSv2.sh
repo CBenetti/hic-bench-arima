@@ -4,8 +4,8 @@
 Organism="hg38"
 
 # Custom set parameters
-bwa__index=inputs/data/genomes/$Organism/genome/bwa.index/genome.fasta
-call__peaks=1 # "1" to call peaks using MACS2, "0" to use ChIP peak file provided
+bwa__index="inputs/data/genomes/$Organism/genome/bwa.index/genome.fasta"
+call__peaks="1" # "1" to call peaks using MACS2, "0" to use ChIP peak file provided
 peak__type="broad" # Required if call_peaks=1. Type of peaks to call. Must be either "broad" (H3K4me3) or "narrow" (CTCF)
 Feather=1 # "1" to run feather, "0" to skip
 Maps=1 # "1" to run MAPS on data previously processed with feather, "0" to skip
