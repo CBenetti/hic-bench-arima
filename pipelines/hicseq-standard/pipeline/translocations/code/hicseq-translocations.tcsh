@@ -39,7 +39,9 @@ else
 		module unload python
 		module load python/cpu/3.6.5 
 		hicConvertFormat --matrices $hic_file --inputFormat hic --outputFormat cool --outFileName $outdir/matrix.cool --resolutions 5000 10000 50000
-		for i in {1..16}; do sbatch --export=outdir=$outdir,prefix=$object,genome=$genome ./code/hicseq-translocations-EagleC.sh; sleep 40s; done 
+		foreach i (`seq 1 16`) 
+			sbatch --export=outdir=$outdir,prefix=$object,genome=$genome ./code/hicseq-translocations-EagleC.sh; sleep 40s
+		end 
 	else
 		echo "Error: Translocations tool $tool not supported." | scripts-send2err
 	endif

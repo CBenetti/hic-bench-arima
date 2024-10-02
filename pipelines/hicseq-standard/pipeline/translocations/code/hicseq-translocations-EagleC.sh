@@ -8,10 +8,13 @@
 #SBATCH --error=predictSV.%j.%N.err
 
 module load condaenvs/new/EagleC
-predictSV --hic-5k $outdir/matrix_5000.cool \
-          --hic-10k $outdir/matrix_10000.cool \
-          --hic-50k $outdir/matrix_50000.cool \
+current_dir=$(pwd)
+cd $outdir
+predictSV --hic-5k matrix_5000.cool \
+          --hic-10k matrix_10000.cool \
+          --hic-50k matrix_50000.cool \
           -O $prefix -g $genome --balance-type CNV --output-format full \
           --prob-cutoff-5k 0.8 --prob-cutoff-10k 0.8 --prob-cutoff-50k 0.99999
 
 module unload condaenvs/new/EagleC
+cd $current_dir
