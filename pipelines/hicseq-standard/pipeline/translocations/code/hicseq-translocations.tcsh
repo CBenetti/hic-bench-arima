@@ -35,7 +35,14 @@ set enzyme = `cut -f1-2,5-7 inputs/sample-sheet.tsv | grep -w "$objects" | cut -
 if ($tool == hint) then
   ./code/hicseq-translocations-hint.tcsh $outdir $params $genome $enzyme $hic_file
 else
-  echo "Error: Translocations tool $tool not supported." | scripts-send2err
+	if ($tool == EagleC) then
+		module unload python
+		module load python/cpu/3.6.5 
+		hicConvertFormat --matrices $hic_file --inputFormat hic --outputFormat cool --outFileName $outdir/matrix.cool --resolutions 5000 10000 50000
+		for i in {1..16}; do sbatch --export=outdir=$outdir,prefix=$object,genome=$genome ./code/hicseq-translocations-EagleC.sh; sleep 40s; done 
+	else
+		echo "Error: Translocations tool $tool not supported." | scripts-send2err
+	endif
 endif
 
 # -------------------------------------
