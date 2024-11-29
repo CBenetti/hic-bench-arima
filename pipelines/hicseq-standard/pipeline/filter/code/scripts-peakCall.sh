@@ -30,7 +30,7 @@ else
 fi	
 
 module load bedtools/2.27.1
-module load ucscutils/374
+module load ucscutils/398
 
 # Get fasta index file
 genome=`grep -w "^genome" $outdir/job.vars.tsv | cut -f2`
@@ -104,7 +104,7 @@ bedGraphToBigWig $outdir/chip_scaled.bedGraph $idx $outdir/chip_scaled.bw
 module unload python
 module load macs2/2.1.1
 
-macs2 callpeak -f BEDPE --keep-dup all -g $species -t $outdir/shortpaired.bed --outdir $outdir -n chip --broad
+#macs2 callpeak -f BEDPE --keep-dup all -g $species -t $outdir/shortpaired.bed --outdir $outdir -n chip --broad
 #macs2 callpeak -f BEDPE --keep-dup all -g $species -t $outdir/shortpaired.bed --outdir $outdir -n chip
 
 # clean up

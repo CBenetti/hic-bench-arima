@@ -29,8 +29,8 @@
 # Load environment
 module unload r
 module unload python
+module load python/cpu/3.7.2
 module load r/4.3.2
-module load python/cpu/3.6.5
 module load bedtools/2.27.1
 module load bwa/0.7.17
 module load bcftools/1.10.2
@@ -407,8 +407,8 @@ if [ $feather -eq 1 ]; then
 			fi
 			module unload macs2
 			module load r/4.3.2
-			module load python/cpu/3.6.5
-			rm $outdir/MACS2_peaks/${dataset_name}_peaks.gappedPeak
+			module load python/cpu/3.7.2
+		rm $outdir/MACS2_peaks/${dataset_name}_peaks.gappedPeak
 			macs2_filepath=$outdir/MACS2_peaks/${dataset_name}_peaks.broadPeak
 
 			echo -e "Finished calling peaks using MACS2. The output peak file is:"

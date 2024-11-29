@@ -9,7 +9,7 @@
 # ./code/peakCall.sh    #
 #########################
 
-branch=`realpath results/*/*/ | fgrep -v "total"`
+branch=`realpath results/filter.by_sample.mapq_20_mindist0/align.by_sample.hicpro/ | fgrep -v "total"`
 n_samples=`ls -l $branch | fgrep -v "total" | wc -l`
 make_bam=FALSE
 

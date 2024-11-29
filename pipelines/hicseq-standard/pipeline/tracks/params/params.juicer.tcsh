@@ -2,6 +2,6 @@
 
 source ./inputs/params/params.tcsh
 
-set format = juicer					# juicer, cool, h5
+set format = cool					# juicer, cool, h5
 set resolution = default				# comma separated list of resolutions, or default (2.5M, 1M, 500K, 250K, 100K, 50K, 25K, 10K, and 5K)
-set keep_all = FALSE	                                # keep intermediate matrices (juicer (hic) -> cool -> h5)
+set keep_all = TRUE	                                # keep intermediate matrices (juicer (hic) -> cool -> h5)

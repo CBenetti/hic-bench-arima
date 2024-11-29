@@ -22,4 +22,4 @@ join -1 8 -2 7 ${OUTDIR}/loops_a1_sorted.txt ${OUTDIR}/a1_k27ac_signal.tsv | sor
 join -1 9 -2 7 ${OUTDIR}/a1_data.tsv ${OUTDIR}/a2_k27ac_signal.tsv | sort -u -k10,10b | tr ' ' '\t' | cut -f 3-9,14-16,20-22 | sed 's/\t\./\t0/g' | awk -v OFS='\t' '{print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,($9+$12),(($9+$12)/2)}' >> ${OUTDIR}/${OUTNAME}
 
 # clean up
-rm -f ${OUTDIR}/loops_temp.txt ${OUTDIR}/a1.txt ${OUTDIR}/a2.txt ${OUTDIR}/a1_data.tsv ${OUTDIR}/a1_k27ac_signal.tsv ${OUTDIR}/a2_k27ac_signal.tsv
+#rm -f ${OUTDIR}/loops_temp.txt ${OUTDIR}/a1.txt ${OUTDIR}/a2.txt ${OUTDIR}/a1_data.tsv ${OUTDIR}/a1_k27ac_signal.tsv ${OUTDIR}/a2_k27ac_signal.tsv

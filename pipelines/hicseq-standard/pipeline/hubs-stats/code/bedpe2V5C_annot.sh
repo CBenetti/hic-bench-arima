@@ -10,14 +10,16 @@ standarize_cpm=$8
 use_topLoops=$9
 winsize=${10}
 OUTDIR=${11}
+#( set -o posix ; set ) | less
 
 module load bedtools/2.27.1
-
+echo "here I am"
 rm -fr ${OUTDIR}
 mkdir -p ${OUTDIR}
 
 # add loop identifier column
 awk -v OFS="\t" '{print $1,$2,$3,$4,$5,$6,$7,$1":"$2":"$3":"$4":"$5":"$6}' ${BEDPE} > ${OUTDIR}/temp; mv ${OUTDIR}/temp ${OUTDIR}/loops_labeled.bedpe
+#sort -k8,8 ${OUTDIR}/loops_labeled.bedpe > ${OUTDIR}/loops_labeled.tmp && mv ${OUTDIR}/loops_labeled.tmp ${OUTDIR}/loops_labeled.bedpe
 
 # separate loop anchors
 cut -f 1-3,7-8 ${OUTDIR}/loops_labeled.bedpe | awk -v OFS="\t" '{print $1,$2,$3,$1":"$2":"$3,$4,$5}' > ${OUTDIR}/a1.bed
@@ -67,10 +69,10 @@ then
 fi
 
 # intersect k27ac and TSS with anchors
-bedtools intersect -a ${OUTDIR}/k27ac_flt.bed -b ${OUTDIR}/a1.bed -wo | sort -k10b,10 > ${OUTDIR}/k27ac_a1_intersect.txt
-bedtools intersect -a ${OUTDIR}/k27ac_flt.bed -b ${OUTDIR}/a2.bed -wo | sort -k10b,10 > ${OUTDIR}/k27ac_a2_intersect.txt
-bedtools intersect -a ${OUTDIR}/tss_flt.bed -b ${OUTDIR}/a1.bed -wo | sort -k12b,12 > ${OUTDIR}/tss_a1_intersect.txt
-bedtools intersect -a ${OUTDIR}/tss_flt.bed -b ${OUTDIR}/a2.bed -wo | sort -k12b,12 > ${OUTDIR}/tss_a2_intersect.txt
+bedtools intersect -a ${OUTDIR}/k27ac_flt.bed -b ${OUTDIR}/a1.bed -wo | sort -k10b,10 > ${OUTDIR}/k27ac_a1_intersect.txt #all loops for wich l1 interacts with peaks
+bedtools intersect -a ${OUTDIR}/k27ac_flt.bed -b ${OUTDIR}/a2.bed -wo | sort -k10b,10 > ${OUTDIR}/k27ac_a2_intersect.txt #all loops for which l2 interacts with  peaks
+bedtools intersect -a ${OUTDIR}/tss_flt.bed -b ${OUTDIR}/a1.bed -wo | sort -k12b,12 > ${OUTDIR}/tss_a1_intersect.txt #all loops for wich l1 interacts with TSS (and peaks, as tss_flt.bed contains only the TSS which overlap with peak)
+bedtools intersect -a ${OUTDIR}/tss_flt.bed -b ${OUTDIR}/a2.bed -wo | sort -k12b,12 > ${OUTDIR}/tss_a2_intersect.txt #all loops for wich l2 with TSS
 
 if [[ $k27ac_in_TSS_anchor = "FALSE" ]]
 then
@@ -81,7 +83,7 @@ then
 	cat ${OUTDIR}/k27ac_a2_intersect.txt | sort -k8b,8 > ${OUTDIR}/K2
 	cat ${OUTDIR}/tss_a2_intersect.txt | sort -k10b,10 > ${OUTDIR}/T2
 
-	join -o 1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,1.10,1.11  -v 1 -1 8 -2 10 ${OUTDIR}/K1 ${OUTDIR}/T1 | tr ' ' '\t' | sort -k10b,10 > ${OUTDIR}/temp; mv ${OUTDIR}/temp ${OUTDIR}/k27ac_a1_intersect.txt
+	join -o 1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,1.10,1.11  -v 1 -1 8 -2 10 ${OUTDIR}/K1 ${OUTDIR}/T1 | tr ' ' '\t' | sort -k10b,10 > ${OUTDIR}/temp; mv ${OUTDIR}/temp ${OUTDIR}/k27ac_a1_intersect.txt #enhancer only peaks
 	join -o 1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,1.10,1.11  -v 1 -1 8 -2 10 ${OUTDIR}/K2 ${OUTDIR}/T2 | tr ' ' '\t' | sort -k10b,10 > ${OUTDIR}/temp; mv ${OUTDIR}/temp ${OUTDIR}/k27ac_a2_intersect.txt
 
 	wc -l ${OUTDIR}/k27ac_a1_intersect.txt
@@ -89,9 +91,9 @@ then
 fi
 
 # get EE,EP,PE,PP loops
-join -j10 ${OUTDIR}/k27ac_a1_intersect.txt ${OUTDIR}/k27ac_a2_intersect.txt | awk '$9!=$19'> ${OUTDIR}/EE_loops.txt
-join -j12 ${OUTDIR}/tss_a1_intersect.txt ${OUTDIR}/tss_a2_intersect.txt | awk '$11!=$23' > ${OUTDIR}/PP_loops.txt
-join -1 10 -2 12 ${OUTDIR}/k27ac_a1_intersect.txt ${OUTDIR}/tss_a2_intersect.txt | awk '$9!=$21' > ${OUTDIR}/EP_loops.txt
+join -j10 ${OUTDIR}/k27ac_a1_intersect.txt ${OUTDIR}/k27ac_a2_intersect.txt | awk '$9!=$19'> ${OUTDIR}/EE_loops.txt #all loops interacting with peaks
+join -j12 ${OUTDIR}/tss_a1_intersect.txt ${OUTDIR}/tss_a2_intersect.txt | awk '$11!=$23' > ${OUTDIR}/PP_loops.txt #all loops interacting with TSS
+join -1 10 -2 12 ${OUTDIR}/k27ac_a1_intersect.txt ${OUTDIR}/tss_a2_intersect.txt | awk '$9!=$21' > ${OUTDIR}/EP_loops.txt #
 join -1 12 -2 10 ${OUTDIR}/tss_a1_intersect.txt ${OUTDIR}/k27ac_a2_intersect.txt | awk '$11!=$21' > ${OUTDIR}/PE_loops.txt
 
 # get loops with at least one k27ac

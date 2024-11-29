@@ -19,10 +19,10 @@ set jobname = `basename $3`
 shift
 shift
 
-if (-e $out) then
-  scripts-send2err "[scripts-qsub-wrapper] Directory \'$out\' exists, skipping..."
-  exit 1
-endif
+#if (-e $out) then
+#  scripts-send2err "[scripts-qsub-wrapper] Directory \'$out\' exists, skipping..."
+#  exit 1
+#endif
 
 set nthreads = `echo $resources,, | cut -d',' -f1`                # number of threads
 set mem = `echo $resources,, | cut -d',' -f2`                     # memory, e.g. 10G
@@ -32,8 +32,10 @@ if ($rtime == '') then
 endif
 
 scripts-send2err "[scripts-qsub-wrapper] Generating results in directory \'$out\'..."
-if (-e $out) rm -rf $out
+if (! -e $out) then
 scripts-create-path $out/ 
+endif
+
 set pref = $out/job
 
 echo '#\!/bin/bash' >! $pref.sh

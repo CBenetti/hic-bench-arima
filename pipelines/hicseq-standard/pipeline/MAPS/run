@@ -26,6 +26,7 @@ endif
 # setup
 set op = MAPS
 set inpdirs = "inputs"
+#set filter = "^[^F]"
 scripts-create-path $results/
 scripts-send2err "=== Operation = $op ============="
 set resources = 16,50G,24

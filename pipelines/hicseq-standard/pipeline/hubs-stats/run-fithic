@@ -18,7 +18,7 @@ set opt = "$1"
 # setup
 set op = hubs-stats
 set inpdirs = "inpdirs/loops"             # indicate input directories
-set filter = ""                       # filter input objects
+set filter = "*.mapq_20_mindist0"                      # filter input objects
 set results = results-fithic
 scripts-create-path $results/
 scripts-send2err "=== Operation = $op ============="

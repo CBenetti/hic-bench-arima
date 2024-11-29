@@ -75,7 +75,7 @@ if ($tool == fithic) then
 else
 	set inpfile = $branch/$object/virtual-5C_top200k.csv
 endif
-
+echo "preliminary step"
 cat $inpfile | tr ',' '\t' | code/code.main/scripts-skipn 1 | awk -v D=$min_anchordist '$6>=D || $6<=-D' | sort -k8,8rg | awk -v Q="$min_qvalue" -v C="$min_activity" '$12 < Q && $8 >=C' | sort >! $outdir/loops.tsv   # apply loop filters
 echo "num initital loops"
 cat  $outdir/loops.tsv | wc -l
