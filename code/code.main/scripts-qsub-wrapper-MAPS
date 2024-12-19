@@ -32,7 +32,7 @@ if ($rtime == '') then
 endif
 
 scripts-send2err "[scripts-qsub-wrapper] Generating results in directory \'$out\'..."
-if (! -e $out) then
+if (! -e $out) then 
 scripts-create-path $out/ 
 endif
 
