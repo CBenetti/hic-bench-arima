@@ -16,7 +16,7 @@ fastq1=$(./code/read-sample-sheet.tcsh inputs/sample-sheet.tsv "${objects[@]}" f
 fastq2=$(./code/read-sample-sheet.tcsh inputs/sample-sheet.tsv "${objects[@]}" fastq-r2 | tr ',' '\n' | sed "s|[^ ]*|"inputs/fastq/"&|g")
 ln=$(echo $fastq1 | awk '{print NF}')
 if [ ! -e inputs/fastq/"${objects[@]}"/"${objects[@]}"_R1.fastq.gz ]; then
-	if [ $ln -eq 1 ]; then 
+	if [ ! $ln -eq 1 ]; then 
 		zcat $fastq1 | gzip > inputs/fastq/"${objects[@]}"/"${objects[@]}"_R1.fastq.gz
 		zcat $fastq2 | gzip > inputs/fastq/"${objects[@]}"/"${objects[@]}"_R2.fastq.gz
 	else
