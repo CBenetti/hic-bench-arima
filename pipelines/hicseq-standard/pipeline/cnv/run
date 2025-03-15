@@ -18,7 +18,7 @@ set opt = "$1"
 # setup
 set op = cnv
 set inpdirs = "inpdirs/tracks"             # indicate input directories
-set filter = "tracks.by_group.juicer|tracks.by_sample.juicer"      # filter input objects
+set filter = "tracks.by_group.juicer|tracks.by_sample.juicer|tracks.by_group.cool|tracks.by_sample.cool"      # filter input objects
 set results = results
 scripts-create-path $results/
 scripts-send2err "=== Operation = $op ============="
