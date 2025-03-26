@@ -35,14 +35,23 @@ scripts-create-path $outdir/
 # -----  MAIN CODE BELOW --------------
 # -------------------------------------
 
-set hic_file = $branch/$objects/filtered.hic
 set enzyme = `cut -f1-2,5-7 inputs/sample-sheet.tsv | grep -w "$objects" | cut -f4 | head -n1`
-set cool_file = $branch/$objects/filtered.cool
+
 if ($tool == hint) then
-  ./code/hicseq-cnv-hint.tcsh $outdir $params $genome $enzyme $hic_file
+   if (-f "$branch/$objects/filtered-hic") then
+	set hic_file = $branch/$objects/filtered.hic
+	 ./code/hicseq-cnv-hint.tcsh $outdir $params $genome $enzyme $hic_file
+   else
+	echo "Error: combination not supported, input file is not compatible with tool." | scripts-send2err
+   endif
 else
-   if ($tool == neoloop)then
-      ./code/hicseq-cnv-neoloop.sh $outdir $cool_file $objects $enzyme $genome $params $resolution
+   if ($tool == neoloop) then
+	set cool_file = `find $branch/$objects/ -type f -name "*cool" | head -n 1`
+	if ($cool_file != "") then
+		./code/hicseq-cnv-neoloop.sh $outdir $cool_file $objects $enzyme $genome $params $resolution $chr_rename
+	else
+	     echo "Error: combination not supported, input file is not compatible with tool." | scripts-send2err
+	endif
    else
      echo "Error: Cnv tool $tool not supported." | scripts-send2err
    endif
