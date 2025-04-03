@@ -1,0 +1,51 @@
+#!/bin/tcsh
+source ./code/code.main/custom-tcshrc      # customize shell environment
+
+##
+## USAGE: run [--dry-run]
+##
+
+#% <ADD DESCRIPTION>
+
+# process command-line inputs
+if ($#argv > 1) then
+  grep '^##' $0 | scripts-send2err
+  exit
+endif
+
+set opt = "$1"
+
+# setup
+set op = EagleC
+set inpdirs = "inpdirs/cnv"             # indicate input directories
+set nonomatch
+set noglob
+set files = (params/*_multires.tcsh)
+if ( -e $files ) then
+	set filter = "res_5kb"      # filter input objects: just ONE resolution per run
+		scripts-send2err $files
+unset nonomatch
+unset noglob
+
+else
+	set files = (params/params*.tcsh)
+unset nonomatch
+unset noglob
+	foreach file ($files)
+		scripts-send2err $file
+		set filter = (`sh -c "echo '$file' | sed 's/.*\(res_[^\.]*\)\.tcsh/\1/'"`)
+		scripts-send2err "Filter: $filter"
+        	break
+	end
+endif
+set results = results
+scripts-create-path $results/
+scripts-send2err "=== Operation = $op ============="
+set resources = 1,5G,48
+set cmd = "./code/code.main/scripts-qsub-wrapper $resources ./code/hicseq-$op.tcsh"
+
+# generate run script
+Rscript ./code/code.main/pipeline-master-explorer.r -v --filter-branch="$filter" "$cmd" $results/$op "params/params.*.tcsh" "$inpdirs" "" "." 1
+
+# run and wait until done!
+if ("$opt" != "--dry-run") scripts-submit-jobs ./$results/.db/run 2
