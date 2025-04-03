@@ -46,6 +46,9 @@ find $outdir -type l -delete
  
 endif 
 
+if (`echo $branch | cut -f 5 -d"/"` == 'MAPS.by_sample.MAPSv2') then
+  Rscript ./code/Arima-qc.R $branch $outdir
+endif
 
 # save variables
 set >! $outdir/job.vars.tsv

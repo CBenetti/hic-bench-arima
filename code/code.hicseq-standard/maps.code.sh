@@ -17,8 +17,8 @@ fastq2=$(./code/read-sample-sheet.tcsh inputs/sample-sheet.tsv "${objects[@]}" f
 ln=$(echo $fastq1 | awk '{print NF}')
 if [ ! -e inputs/fastq/"${objects[@]}"/"${objects[@]}"_R1.fastq.gz ]; then
 	if [ ! $ln -eq 1 ]; then 
-		zcat $fastq1 | gzip > inputs/fastq/"${objects[@]}"/"${objects[@]}"_R1.fastq.gz
-		zcat $fastq2 | gzip > inputs/fastq/"${objects[@]}"/"${objects[@]}"_R2.fastq.gz
+		cat $fastq1 >| inputs/fastq/"${objects[@]}"/"${objects[@]}"_R1.fastq.gz
+		cat $fastq2 >| inputs/fastq/"${objects[@]}"/"${objects[@]}"_R2.fastq.gz
 	else
 		cp $fastq1 inputs/fastq/"${objects[@]}"/"${objects[@]}"_R1.fastq.gz
 		cp $fastq2 inputs/fastq/"${objects[@]}"/"${objects[@]}"_R2.fastq.gz

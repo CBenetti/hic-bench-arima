@@ -164,14 +164,39 @@ else if($enzyme == "Arima" && $#objects == 1 && $branch =~ *MAPS*) then
 #--------------------------------------------------------------------------------------------------------
 # Case 6: Arima specific pipeline - integration of MAPS Arima pipeline with HiC-bench
 #--------------------------------------------------------------------------------------------------------
-scripts-send2err "Processing hic.input from Arima pipeline."
+  scripts-send2err "Processing hic.input from Arima pipeline."
+  set allValidPairs = ()
+  foreach obj ($objects)
+	./code/bam2pairs.sh $branch $obj $outdir $genome
+	zcat $outdir/$obj.bsorted.pairs.gz | grep -v '^#' > $outdir/$obj.pairs
+	set allValidPairs = $outdir/$obj.pairs
+	cp $branch/$obj/"$obj"_Arima_QC_deep.txt $outdir/Arima_QC_deep.txt
+  end
 
-  echo 'outdir: '$outdir
-  echo 'objects: '$objects
-  set pat = `echo $outdir |sed 's:/*$::'| awk -F"/" '{for (i=1; i<=NF; i++) printf "../"; print ""}'`
-  cd $outdir
-  ln -sn "$pat"$branch/$objects/filtered.reg.gz filtered.reg.gz
-  cd $pat
+  cat $allValidPairs | tools-cols -t 0 1 5 2 2 3 6 4 4 | tr '\t' ' ' | sed 's/ /\t/' >! $outdir/filtered.reg            # NOTE: can we filter by mapq here????
+  set n_reads = `cat $outdir/filtered.reg | wc -l`
+  set n_intra = `cat $outdir/filtered.reg | awk '$2==$6' | wc -l`
+  set n_inter = $n_reads
+  @ n_inter -= $n_intra
+  set p_intra = `echo $n_intra/$n_reads | bc -l`
+  set p_inter = `echo $n_inter/$n_reads | bc -l`
+  gzip $outdir/filtered.reg
+  ( echo "read-pairs $n_reads 1" ;\
+    echo "unpaired 0 0" ;\
+    echo "unmapped 0 0" ;\
+    echo "multihit 0 0" ;\
+    echo "single-sided 0 0" ;\
+    echo "ds-no-fragment 0 0" ;\
+    echo "ds-same-fragment 0 0" ;\
+    echo "ds-too-close 0 0" ;\
+    echo "ds-accepted-inter $n_inter $p_inter" ;\
+    echo "ds-accepted-intra $n_intra $p_intra" ;\
+    echo "ds-duplicate-inter 0 0" ;\
+    echo "ds-duplicate-intra 0 0" ;\
+    echo "ds-too-far 0 0" ;\
+    echo "unclassified 0 0" ;\
+  ) | tr ' ' '\t' >! $outdir/stats.tsv
+  rm $outdir/*.pairs*
   goto done
 
 else

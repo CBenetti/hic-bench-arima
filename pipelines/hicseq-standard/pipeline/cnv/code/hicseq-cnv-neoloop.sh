@@ -33,21 +33,30 @@ mkdir -p "$outdir/neoloop/cnv"
 module unload python
 module load anaconda3/gpu/2023.09
 conda activate neoloops
+
+resolution_bp=$((resolution * 1000))
+
 if [[ "$cool_file" == *.mcool ]]; then
-	resolution_bp=$((resolution * 1000))
 	cool_file="$cool_file::resolutions/$resolution_bp"
+	cooler cp $cool_file $outdir/filtered_cnv_"$resolution"kb.cool
+else
+	cp $cool_file $outdir/filtered_cnv_"$resolution"kb.cool
 fi
 
-if cooler info "$cool_file" &>/dev/null; then
-	if [[ "$chr_rename" == "YES"]]; then
-		python ./code/convert_dict.py $cool_file
-	fi 
-	calculate-cnv -H "$cool_file" -g "$genome" -e "$enzyme" --output "$outdir/neoloop/cnv/$object.$resolution.CNV.bedGraph" --logFile "$outdir/neoloop/cnv/$object.calculate-cnv"
-	cp $cool_file $outdir/filtered_cnv_"$resolution"kb.cool
-	correct-cnv -H "$outdir/filtered_cnv_"$resolution"kb.cool" --cnv-file "$outdir/neoloop/cnv/$object.$resolution.CNV.bedGraph" --nproc 4 -f
+if (cooler info "$outdir/filtered_cnv_"$resolution"kb.cool" &>/dev/null); then
+	if [[ "$chr_rename" == "YES" ]]; then
+		python ./code/convert_dict.py "$outdir/filtered_cnv_"$resolution"kb.cool"
+	fi
+	calculate-cnv -H "$outdir/filtered_cnv_"$resolution"kb.cool" -g "$genome" -e "$enzyme" --output "$outdir/neoloop/cnv/$object.$resolution.CNV.bedGraph" --logFile "$outdir/neoloop/cnv/$object.calculate-cnv"
+	segment-cnv --cnv-file "$outdir/neoloop/cnv/$object.$resolution.CNV.bedGraph" --binsize $resolution_bp --ploidy 2 --output "$outdir/neoloop/cnv/$object.$resolution.CNV-seg.bedGraph" \
+	--nproc 4 --logFile "$outdir/segment_cnv.log"
+	plot-cnv --cnv-profile "$outdir/neoloop/cnv/$object.$resolution.CNV.bedGraph" --cnv-segment "$outdir/neoloop/cnv/$object.$resolution.CNV-seg.bedGraph" \
+	--output-figure-name "$outdir/$object.$resolution.kb.CNV.genome-wide.png" --dot-size 0.5 --dot-alpha 0.2 --line-width 1 --boundary-width 0.5 --label-size 7 --tick-label-size 6 --clean-mode
+	cooler balance "$outdir/filtered_cnv_"$resolution"kb.cool"
+	correct-cnv -H "$outdir/filtered_cnv_"$resolution"kb.cool" --cnv-file "$outdir/neoloop/cnv/$object.$resolution.CNV-seg.bedGraph" --nproc 4 --logFile "$outdir/correct_cnv.log" -f
 else
 	echo "Resolution group does not exist: $cool_file"
-fi	
+fi
 conda deactivate
 module unload anaconda3/gpu/2023.09
 
