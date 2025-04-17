@@ -5,6 +5,7 @@
 #SBATCH --time=24:00:00
 #SBATCH -N 1
 
+
 #===============
 # A stand alone executable of FitHiChIP module
 # used to process the HiC-pro pipeline output (allvalidpairs.txt file)
@@ -13,7 +14,7 @@
 
 # author: Sourya Bhattacharyya
 # Vijay-AY lab
-# La Jolla Institute for Allergy and Immunology
+# La Jolla Institute for Immunology
 #===============
 
 #===============
@@ -22,12 +23,30 @@
 #===============
 
 # first read the configuration file name
-
 module unload r
 module unload python
 module load hic-pro
+module load ucscutils/398
+home_dir=`pwd`
 
-ConfigFile=$1
+usage(){
+cat << EOF
+
+Options:
+   	-C  ConfigFile		Name of the configuration file storing the parameters of FitHiChIP.
+EOF
+}
+
+while getopts "C:" opt;
+do
+	case "$opt" in
+		C) ConfigFile=$OPTARG;;
+		\?) usage
+			echo "error: unrecognized option -$OPTARG";
+			exit 1
+			;;
+	esac
+done
 
 #======================
 # default values of the parameters
@@ -103,6 +122,8 @@ BiasType=1
 UseP2PBackgrnd=1
 # Merging interactions which are near to each other
 MergeInteraction=1
+# if the reference genome is circular genome
+CircularGenome=0
 
 #========================
 # following parameters are now obsolete
@@ -163,6 +184,16 @@ do
 			if [ $param == "Bed" ]; then
 				InpInitialInteractionBedFile=$paramval
 			fi
+			if [ $param == "HIC" ]; then
+				InpHiCFile=$paramval
+			fi
+			if [ $param == "COOL" ]; then
+				InpCoolFile=$paramval
+			fi						
+			## indicates circular genome
+			if [ $param == "CircularGenome" ]; then
+				CircularGenome=$paramval
+			fi			
 			if [ $param == "PeakFile" ]; then
 				PeakFILE=$paramval
 			fi
@@ -172,7 +203,7 @@ do
 				fi
 			fi
 			if [ $param == "ChrSizeFile" ]; then
-				ChrSizeFile=$paramval
+				ChrSizeFile="$home_dir/$paramval"
 			fi
 
 			# optional parameters
@@ -319,29 +350,15 @@ do
 	fi
 done < $ConfigFile
 
-#=========================
-# check whether HiC-pro is installed or not
-#=========================
-# path of HiC pro executable
-# of the format somedir/bin/HiC-Pro
-HiCProExec=`which HiC-Pro`
-if [[ -z $HiCProExec ]]; then
-	echo 'ERROR ===>>>> HiC-pro is not installed in the system - FitHiChIP quits !!!'
-	exit 1
-fi
-d1=$(dirname ${HiCProExec})
-HiCProBasedir=$(dirname ${d1})
-echo 'Base directory containing HiCPro package : '$HiCProBasedir
-
 #===================
 # verify the input parameters
 #===================
 
 echo -e "\n\n ================ Verifying input configuration parameters ================= \n\n"
 
-if [[ -z $InpValidPairsFile && -z $InpInitialInteractionBedFile ]]; then
+if [[ -z $InpValidPairsFile && -z $InpInitialInteractionBedFile && -z $InpHiCFile && -z $InpCoolFile ]]; then
 	if [[ -z $InpBinIntervalFile || -z $InpMatrixFile ]]; then
-		echo -e 'There are three ways to provide FitHiChIP input: \n 1) provide valid pairs file (from HiC pro pipeline), \n 2) Provide both bin interval and matrix files (from HiC pro pipeline), or \n 3) provide a set of locus pairs along with their contact counts (7 columns). \n But user did not provide any of these input configurations. - exit !!'
+		echo -e 'There are five ways to provide FitHiChIP input: \n 1) provide valid pairs file (from HiC pro pipeline), \n 2) Provide both bin interval and matrix files (from HiC pro pipeline), \n 3) provide a file in the Bed= option - either as a set of locus pairs along with their contact counts (7 columns), 4) Provide interactions in .hic format (from Juicer), or 5) Provide interactions in .cool format. \n But user did not provide any of these input configurations. - exit !!'
 		exit 1
 	fi
 fi
@@ -373,13 +390,6 @@ fi
 # fi
 #======================
 
-if [[ -z $HiCProBasedir && -z $InpInitialInteractionBedFile ]]; then
-	if [[ -z $InpBinIntervalFile || -z $InpMatrixFile ]]; then
-		echo 'ERROR ====>>> As user did not provide any pre-computed locus pairs (along with their contact count) in BED input, neither provided the HiC-pro base installation directory, FitHiChIP quits - exit !!'
-		exit 1
-	fi
-fi
-
 if [[ -z $ChrSizeFile ]]; then
 	echo 'ERROR ====>>> Chromosome size file is not specified - exit !!'
 	exit 1
@@ -387,59 +397,35 @@ fi
 
 echo '***** Specified output directory : '$OutDir
 
+# boolean variable indicating error condition
+errcond=0
+
+##=============
+## if Bed file / HiC file / cool file is not provided, 
+## means we need to process the valid pairs
+## and there is no matrix file or bin interval file
+## then, get the installed HiC-pro version
+##=============
+
+HiCProExec=`which HiC-Pro`
+if [[ -z $HiCProExec ]]; then
+	echo 'ERROR ===>>>> HiC-pro is not installed in the system - FitHiChIP quits !!!'
+	exit 1
+fi
+# path of HiC pro executable
+# of the format somedir/bin/HiC-Pro		
+d1=$(dirname ${HiCProExec})
+HiCProBasedir=$(dirname ${d1})
+echo 'Base directory containing HiCPro package : '$HiCProBasedir
+if [[ -z $HiCProBasedir ]]; then
+	echo 'ERROR ====>>> Invalid HiC-pro installation directory - FitHiChIP quits - exit !!'
+	exit 1
+fi
+
 #*****************************
 # error checking - 
 # check if the required libraries are all installed or not
 #*****************************
-if [ 1 == 1 ]; then
-
-# boolean variable indicating error condition
-errcond=0
-
-# first check the HiC-pro installation
-HiCProVersion=$(HiC-Pro -v | head -n 1 | awk -F[" "] '{print $3}' -)
-if [[ -z "$HiCProVersion" ]]; then
-    echo "ERROR ====>>> HiC-pro is not installed in the system !!! FitHiChIP quits !!!" 
-    errcond=1
-else
-	echo "HiC-pro is installed in the system"
-fi
-numfield=`echo $HiCProVersion | awk -F'[.]' '{print NF}' -`
-if [[ $numfield -ge 3 ]]; then
-	num1=`echo $HiCProVersion | awk -F'[.]' '{print $1}' -`
-	num2=`echo $HiCProVersion | awk -F'[.]' '{print $2}' -`
-	num3=`echo $HiCProVersion | awk -F'[.]' '{print $3}' -`
-	if [[ $num1 -gt 2 ]]; then
-		echo "Installed HiC-pro version: "${HiCProVersion}		
-		HiCPro_version_ge_2_11_4=1	# boolean indicator
-	elif [[ $num1 -eq 2 && $num2 -gt 11 ]]; then
-		echo "Installed HiC-pro version: "${HiCProVersion}
-		HiCPro_version_ge_2_11_4=1	# boolean indicator
-	elif [[ $num1 -eq 2 && $num2 -eq 11 && $num3 -ge 4 ]]; then
-		echo "Installed HiC-pro version: "${HiCProVersion}
-		HiCPro_version_ge_2_11_4=1	# boolean indicator
-	else 
-		# echo "ERROR ====>>> HiC-pro should have version >= 2.11.4 !!! FitHiChIP quits !!!"
-		# errcond=1
-		echo "===>> installed HiC-pro version: "${HiCProVersion}
-		HiCPro_version_ge_2_11_4=0
-	fi
-else
-	num1=`echo $HiCProVersion | awk -F'[.]' '{print $1}' -`
-	num2=`echo $HiCProVersion | awk -F'[.]' '{print $2}' -`
-	if [[ $num1 -gt 2 ]]; then
-		echo "Installed HiC-pro version: "${HiCProVersion}
-		HiCPro_version_ge_2_11_4=1	# boolean indicator
-	elif [[ $num1 -eq 2 && $num2 -gt 11 ]]; then
-		echo "Installed HiC-pro version: "${HiCProVersion}
-		HiCPro_version_ge_2_11_4=1	# boolean indicator
-	else 
-		# echo "ERROR ====>>> HiC-pro should have version >= 2.11.4 !!! FitHiChIP quits !!!"
-		# errcond=1
-		echo "===>> installed HiC-pro version: "${HiCProVersion}
-		HiCPro_version_ge_2_11_4=0		
-	fi	
-fi
 
 ## first check the python version
 # note: FitHiChIP new versions now use python3, instead of python2
@@ -676,11 +662,6 @@ if [[ $errcond == 1 ]]; then
 fi
 
 #*****************************
-fi 	# end dummy if - testing installed packages
-#*****************************
-
-
-#*****************************
 # here check if the configuration file has relative path names as the input
 # in such a case, convert the relative path names (with respect to the location of the configuration file itself)
 # in the absolute file
@@ -744,6 +725,32 @@ if [[ ! -z $InpInitialInteractionBedFile ]]; then
 		# relative path - convert to absolute path
 		InpInitialInteractionBedFile="$(cd $(dirname $InpInitialInteractionBedFile); pwd)/$(basename $InpInitialInteractionBedFile)"
 		echo 'Absolute converted path: InpInitialInteractionBedFile: '$InpInitialInteractionBedFile
+	fi
+fi
+
+if [[ ! -z $InpHiCFile ]]; then
+	if [ ! -f $InpHiCFile ]; then
+		echo 'ERROR ===>>>> .hic contact matrix file is provided as input : '$InpHiCFile
+		echo 'However, no such file exists - check input file and path - FitHiChIP quits !!'
+		exit 1
+	fi	
+	if [[ "${InpHiCFile:0:1}" != / && "${InpHiCFile:0:2}" != ~[/a-z] ]]; then
+		# relative path - convert to absolute path
+		InpHiCFile="$(cd $(dirname $InpHiCFile); pwd)/$(basename $InpHiCFile)"
+		echo 'Absolute converted path: InpHiCFile: '$InpHiCFile
+	fi
+fi
+
+if [[ ! -z $InpCoolFile ]]; then
+	if [ ! -f $InpCoolFile ]; then
+		echo 'ERROR ===>>>> .cool contact matrix file is provided as input : '$InpCoolFile
+		echo 'However, no such file exists - check input file and path - FitHiChIP quits !!'
+		exit 1
+	fi	
+	if [[ "${InpCoolFile:0:1}" != / && "${InpCoolFile:0:2}" != ~[/a-z] ]]; then
+		# relative path - convert to absolute path
+		InpCoolFile="$(cd $(dirname $InpCoolFile); pwd)/$(basename $InpCoolFile)"
+		echo 'Absolute converted path: InpCoolFile: '$InpCoolFile
 	fi
 fi
 
@@ -920,6 +927,9 @@ if [[ ! -f $ConfFile || $OverWrite == 1 ]]; then
 	if [[ ! -z $InpInitialInteractionBedFile ]]; then
 		echo "Input file containing pre-computed locus pairs and contact count: $InpInitialInteractionBedFile " >> $ConfFile
 	fi
+	if [[ ! -z $InpHiCFile ]]; then
+		echo "Input interaction file in .hic format : $InpHiCFile " >> $ConfFile
+	fi
 	echo "Input ChIP-seq peak file: $PeakFILE " >> $ConfFile
 	echo "File containing chromosome size information corresponding to the reference chromosome: $ChrSizeFile " >> $ConfFile
 
@@ -934,6 +944,7 @@ if [[ ! -f $ConfFile || $OverWrite == 1 ]]; then
 	fi
 
 	echo "Output directory which will store all the results: $OutDir " >> $ConfFile
+
 	if [[ ! -z $HiCProBasedir ]]; then
 		echo "Base directory containing the HIC-PRO executable: $HiCProBasedir " >> $ConfFile
 	fi
@@ -983,22 +994,101 @@ echo 'Executable of python3: '$PythonExec
 RScriptExec=`which Rscript`
 echo 'Executable of R : '$RScriptExec
 
+## required for UCSC compatible browser file creation
+bedToBigBedExec=`which bedToBigBed`
+if [[ -z $bedToBigBedExec ]]; then
+	## download the "bedToBigBed" utility from UCSC
+	wget http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/bedToBigBed
+	bedToBigBedExec=`pwd`'/bedToBigBed'
+fi
+## download the interact.as utility from UCSC
+interact_as_file=$home_dir'/interact.as'
+if [[ ! -f $interact_as_file ]]; then
+	wget https://genome.ucsc.edu/goldenPath/help/examples/interact/interact.as
+fi
+
 # #************************
 # # error checking
 # # check if R libraries are also installed
 # # otherwise, install those packages
-# $RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/Analysis/PackageTest.r
+# $RScriptExec ./Analysis/PackageTest.r
 
 #================================
 
+##==============
 # generate the matrix of Hi-C interactions (ALL)
 # using HiC-pro pipeline
-HiCProMatrixDir=$OutDir'/HiCPro_Matrix_BinSize'$BIN_SIZE
+##==============
+HiCProMatrixDir=$OutDir'/Matrix_BinSize'$BIN_SIZE
 mkdir -p $HiCProMatrixDir
 
-# if pre-computed locus pairs are provided as input
-# then use this interaction file
-if [[ ! -z $InpInitialInteractionBedFile ]]; then
+Interaction_Initial_File=${HiCProMatrixDir}/${PREFIX}.interactions.initial.bed
+
+if [[ ! -z $InpCoolFile ]]; then
+	#=================
+	## if valid read pairs are provided in .cool / .mcool format
+	## here we dump the CIS interactions
+	#=================
+
+	## check file extension	
+	if [[ $InpCoolFile == *.cool ]]; then
+		## cool extension
+		cooler dump -t pixels --header --join $InpCoolFile | awk '{if (NR==1) {print $0} else if ($1==$4) {if (substr($1,1,1) ~ /^[0-9]/ ) {print "chr"$1"\t"$2"\t"$3"\tchr"$4"\t"$5"\t"$6"\t"$7} else {print $0}}}' - > ${Interaction_Initial_File}
+	else
+		## mcool extension
+		## Use '::' to specify a group path"
+		## cooler is provided at /resolutions/500000 etc
+		cooler dump -t pixels --header --join ${InpCoolFile}::/resolutions/${BIN_SIZE} | awk '{if (NR==1) {print $0} else if ($1==$4) {if (substr($1,1,1) ~ /^[0-9]/ ) {print "chr"$1"\t"$2"\t"$3"\tchr"$4"\t"$5"\t"$6"\t"$7} else {print $0}}}' - > ${Interaction_Initial_File}
+	fi
+
+	# also create two files: 
+	# 1) bin interval file, containing the bins with respect to the specified bin size, and bin numbers
+	# 2) matrix file, containing the contact counts for individual bins
+	# these will be used for ICE bias processing
+	OutPrefix=$HiCProMatrixDir'/Matrix'
+	InpBinIntervalFile=$OutPrefix'_abs.bed'
+	InpMatrixFile=$OutPrefix'.matrix'
+
+	if [[ ! -f $InpBinIntervalFile || ! -f $InpMatrixFile || $OverWrite == 1 ]]; then
+		$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/src/CreateBinMatrixFromBed.r --BinSize $BIN_SIZE --ChrSizeFile $ChrSizeFile --InpFile $Interaction_Initial_File --Interval $InpBinIntervalFile --Matrix $InpMatrixFile
+	fi
+	echo -e "\n ===>> Created HiC-pro format compatible interval file : ${InpBinIntervalFile} "
+	echo -e "\n ===>> Created HiC-pro format compatible matrix file : ${InpMatrixFile} "	
+
+elif [[ ! -z $InpHiCFile ]]; then
+	#=================
+	## if valid read pairs are provided in .hic format
+	#=================
+	Interaction_Initial_File_temp=${HiCProMatrixDir}/${PREFIX}.interactions.initial_temp.bed
+
+	echo -e "\n\n ================ Processing input .hic file : ${InpHiCFile} ================= \n\n"
+	$PythonExec $home_dir/src_fithichip_updated/Process_contactMat_HiC.py --hicfile ${InpHiCFile} --outfile ${Interaction_Initial_File_temp} --chromsizefile ${ChrSizeFile} --resolution ${BIN_SIZE}
+	# insert a header line
+	sed -i '1ichr1\ts1\te1\tchr2\ts2\te2\tcc' $Interaction_Initial_File_temp
+	cp $Interaction_Initial_File_temp $Interaction_Initial_File
+	#awk '{if (NR==1) {print $0} else if ($1==$4) {if (substr($1,1,1) ~ /^[0-9]/ ) {print "chr"$1"\t"$2"\t"$3"\tchr"$4"\t"$5"\t"$6"\t"$7} else {print $0}}}' ${Interaction_Initial_File_temp} > ${Interaction_Initial_File}
+	echo -e "\n ===>> Dumped interactions among bin pairs in file : ${Interaction_Initial_File} "
+	rm ${Interaction_Initial_File_temp}
+
+	# also create two files: 
+	# 1) bin interval file, containing the bins with respect to the specified bin size, and bin numbers
+	# 2) matrix file, containing the contact counts for individual bins
+	# these will be used for ICE bias processing
+	OutPrefix=$HiCProMatrixDir'/Matrix'
+	InpBinIntervalFile=$OutPrefix'_abs.bed'
+	InpMatrixFile=$OutPrefix'.matrix'
+
+	if [[ ! -f $InpBinIntervalFile || ! -f $InpMatrixFile || $OverWrite == 1 ]]; then
+		$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/src/CreateBinMatrixFromBed.r --BinSize $BIN_SIZE --ChrSizeFile $ChrSizeFile --InpFile $Interaction_Initial_File --Interval $InpBinIntervalFile --Matrix $InpMatrixFile
+	fi
+	echo -e "\n ===>> Created HiC-pro format compatible interval file : ${InpBinIntervalFile} "
+	echo -e "\n ===>> Created HiC-pro format compatible matrix file : ${InpMatrixFile} "
+
+elif [[ ! -z $InpInitialInteractionBedFile ]]; then
+	#=================
+	# if pre-computed locus pairs are provided as input
+	# then use this interaction file
+	#=================
 
 	echo -e "\n\n ================ Processing input pre-computed locus pairs along with the contact count : ${InpInitialInteractionBedFile} ================= \n\n"
 
@@ -1009,32 +1099,30 @@ if [[ ! -z $InpInitialInteractionBedFile ]]; then
 	else
 		gzipInt=0
 	fi
-
-	Interaction_Initial_File=$HiCProMatrixDir/$PREFIX.interactions.initial.bed
 	
 	# dump the lines having 2nd, 3rd, 5th, 6th and 7th fields as integer
 	if [ $gzipInt == 1 ]; then
-		zcat $InpInitialInteractionBedFile | awk '{if (($2 ~ /^[0-9]+$/) && ($3 ~ /^[0-9]+$/) && ($5 ~ /^[0-9]+$/) && ($6 ~ /^[0-9]+$/) && ($7 ~ /^[0-9]+$/)) {print $0}}' - | cut -f1-7 | awk '($7>0)' - > $Interaction_Initial_File
+		zcat $InpInitialInteractionBedFile | awk '{if (($2 ~ /^[0-9]+$/) && ($3 ~ /^[0-9]+$/) && ($5 ~ /^[0-9]+$/) && ($6 ~ /^[0-9]+$/) && ($7 ~ /^[0-9]+$/)) {print $0}}' - | cut -f1-7 | awk '{if (($1==$4) && ($7>0)) {if (substr($1,1,1) ~ /^[0-9]/ ) {print "chr"$1"\t"$2"\t"$3"\tchr"$4"\t"$5"\t"$6"\t"$7} else {print $0}}}' - > $Interaction_Initial_File
 	else
-		awk '{if (($2 ~ /^[0-9]+$/) && ($3 ~ /^[0-9]+$/) && ($5 ~ /^[0-9]+$/) && ($6 ~ /^[0-9]+$/) && ($7 ~ /^[0-9]+$/)) {print $0}}' $InpInitialInteractionBedFile | cut -f1-7 | awk '($7>0)' - > $Interaction_Initial_File
+		awk '{if (($2 ~ /^[0-9]+$/) && ($3 ~ /^[0-9]+$/) && ($5 ~ /^[0-9]+$/) && ($6 ~ /^[0-9]+$/) && ($7 ~ /^[0-9]+$/)) {print $0}}' $InpInitialInteractionBedFile | cut -f1-7 | awk '{if (($1==$4) && ($7>0)) {if (substr($1,1,1) ~ /^[0-9]/ ) {print "chr"$1"\t"$2"\t"$3"\tchr"$4"\t"$5"\t"$6"\t"$7} else {print $0}}}' - > $Interaction_Initial_File
 	fi
 	
 	# insert a header line
-	sed -i '1ichr\ts1\te1\tchr2\ts2\te2\tcc' $Interaction_Initial_File
+	sed -i '1ichr1\ts1\te1\tchr2\ts2\te2\tcc' $Interaction_Initial_File
 
 	echo -e "\n ===>> Dumped interactions among bin pairs in file : ${Interaction_Initial_File} "
 
 	# also create two files: 
 	# 1) bin interval file, containing the bins with respect to the specified bin size, and bin numbers
 	# 2) matrix file, containing the contact counts for individual bins
-	OutPrefix=$HiCProMatrixDir'/MatrixHiCPro'
+	# these will be used for ICE bias processing
+	OutPrefix=$HiCProMatrixDir'/Matrix'
 	InpBinIntervalFile=$OutPrefix'_abs.bed'
 	InpMatrixFile=$OutPrefix'.matrix'
 
-	if [[ ! -f $InpBinIntervalFile || ! -f $InpMatrixFile ]]; then
+	if [[ ! -f $InpBinIntervalFile || ! -f $InpMatrixFile || $OverWrite == 1 ]]; then
 		$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/src/CreateBinMatrixFromBed.r --BinSize $BIN_SIZE --ChrSizeFile $ChrSizeFile --InpFile $Interaction_Initial_File --Interval $InpBinIntervalFile --Matrix $InpMatrixFile
 	fi
-
 	echo -e "\n ===>> Created HiC-pro format compatible interval file : ${InpBinIntervalFile} "
 	echo -e "\n ===>> Created HiC-pro format compatible matrix file : ${InpMatrixFile} "
 
@@ -1063,9 +1151,9 @@ else
 		
 		# This directory and prefix is used to denote the generated matrices
 		# using the HiC pro routine
-		OutPrefix=$HiCProMatrixDir'/MatrixHiCPro'
+		OutPrefix=$HiCProMatrixDir'/Matrix'
 
-		if [[ ! -f $OutPrefix'_abs.bed' || $OverWrite == 1 ]]; then
+		if [[ ! -f $OutPrefix'_abs.bed' || ! -f $OutPrefix'.matrix' || $OverWrite == 1 ]]; then
 			# check the extension of input valid pairs file
 			# and extract accordingly
 			if [[ $InpValidPairsFile == *.gz ]]; then
@@ -1098,8 +1186,6 @@ else
 	# chr1	start1	end1	chr2	start2	end2	cc
 	#=======================
 	echo -e "\n ================ Creating input interactions (bin pairs + CC) ================="
-
-	Interaction_Initial_File=$HiCProMatrixDir/$PREFIX.interactions.initial.bed
 
 	if [[ ! -f $Interaction_Initial_File || $OverWrite == 1 ]]; then
 		$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/src/InteractionHicPro.r $InpBinIntervalFile $InpMatrixFile $Interaction_Initial_File	
@@ -1134,7 +1220,12 @@ mkdir -p $InteractionThrDir
 Interaction_File=$InteractionThrDir/$PREFIX.cis.interactions.DistThr.bed
 
 if [[ ! -f $Interaction_File || $OverWrite == 1 ]]; then
-	awk -v l="$LowDistThres" -v u="$UppDistThres" -F['\t'] 'function abs(v) {return v < 0 ? -v : v} {if ((NR==1) || ($1==$4 && ($7>0) && abs($2-$5)>=l && abs($2-$5)<=u)) {print $0}}' $Interaction_Initial_File > $Interaction_File
+	
+	## old code - comment - sourya
+	# awk -v l="$LowDistThres" -v u="$UppDistThres" -F['\t'] 'function abs(v) {return v < 0 ? -v : v} {if ((NR==1) || ($1==$4 && ($7>0) && abs($2-$5)>=l && abs($2-$5)<=u)) {print $0}}' $Interaction_Initial_File > $Interaction_File
+
+	## new code - sourya
+	$RScriptExec $home_dir/src_fithichip_updated/Filt_Loop_DistThr.r $Interaction_Initial_File $Interaction_File $LowDistThres $UppDistThres $CircularGenome $ChrSizeFile
 
 	if [ $TimeProf == 1 ]; then
 		duration=$(echo "$(date +%s.%N) - $start" | bc)
@@ -1154,7 +1245,7 @@ fi
 #============================
 # this directory stores the features and associated data
 #============================
-FeatureDir=$OutDir'/NormFeatures'
+FeatureDir=$OutDir'/NormFeatures_BinSize'$BIN_SIZE
 mkdir -p $FeatureDir
 
 # if all of these three files exist
@@ -1357,10 +1448,6 @@ if [[ ! -f $CoverageBiasFile || $OverWrite == 1 ]]; then
 	else
 		# here ICE specific bias is used
 		# compute the bias vector from the HiC-pro contact matrix
-
-		# Note - if HiC-pro version >= 2.11.4, ICE is not a part of HiC-pro as an executable
-		# rather ICE is installed in the /usr/local/bin environment
-		# for older version of HiC-pro, ICE is a part of HiC-pro as an executable
 		if [ -f $HiCProBasedir'/scripts/ice' ]; then
 			ICEExec=$HiCProBasedir'/scripts/ice'
 		else
@@ -1374,7 +1461,11 @@ if [[ ! -f $CoverageBiasFile || $OverWrite == 1 ]]; then
 		NormContactMatrixFile=$AllFeatureDir'/'$PREFIX'.norm.Contact.Matrix'
 		BiasVecFile=$NormContactMatrixFile'.biases'
 		if [[ ! -f $BiasVecFile || $OverWrite == 1 ]]; then
-			$ICEExec $InpMatrixFile --results_filename $NormContactMatrixFile --output-bias $BiasVecFile
+			if [ -f $HiCProBasedir'/scripts/ice' ]; then
+				$PythonExec $ICEExec $InpMatrixFile --results_filename $NormContactMatrixFile --output-bias $BiasVecFile
+			else 
+				$ICEExec $InpMatrixFile --results_filename $NormContactMatrixFile --output-bias $BiasVecFile
+			fi
 			# replace the NANs of the derived bias vector with zero
 			sed -i 's/nan/0/g' $BiasVecFile
 		fi
@@ -1500,9 +1591,9 @@ if [ $DrawFig == 1 ]; then
 	# condition based on having mappability, GC content, or RE sites 
 	# information or not
 	if [[ ! -z $MappabilityFile && ! -z $RefFastaFile && ! -z $REFragFile ]]; then
-		$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/Analysis/PlotGenomeBins.r --GenomeBinFile $AllFeatFile --CommonDir $FeatureDir'/Plots_Common' --BiasSpecificDir $AllFeatureDir'/Plots_Bias' --OverWrite $OverWrite
+		$RScriptExec $home_dir/Analysis/PlotGenomeBins.r --GenomeBinFile $AllFeatFile --CommonDir $FeatureDir'/Plots_Common' --BiasSpecificDir $AllFeatureDir'/Plots_Bias' --OverWrite $OverWrite
 	else
-		$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/Analysis/PlotGenomeBins.r --GenomeBinFile $AllFeatFile --CommonDir $FeatureDir'/Plots_Common' --BiasSpecificDir $AllFeatureDir'/Plots_Bias' --OverWrite $OverWrite --NoMappGC
+		$RScriptExec $home_dir/Analysis/PlotGenomeBins.r --GenomeBinFile $AllFeatFile --CommonDir $FeatureDir'/Plots_Common' --BiasSpecificDir $AllFeatureDir'/Plots_Bias' --OverWrite $OverWrite --NoMappGC
 	fi
 
 	if [ $TimeProf == 1 ]; then
@@ -1539,7 +1630,7 @@ IntFileALLtoALL=$DirALLtoALL'/'$InteractionFileName
 if [[ ! -f $IntFileALLtoALL || $OverWrite == 1 ]]; then
 	# merge the input interactions (chromosome interval + contact count)
 	# with the feature file	
-	$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/src/Significance_Features.r -I $Interaction_File -E $AllFeatFile -O $IntFileALLtoALL -C $ChrSizeFile
+	$RScriptExec $home_dir/src_fithichip_updated/Significance_Features.r -I $Interaction_File -E $AllFeatFile -O $IntFileALLtoALL -C $ChrSizeFile
 	
 	if [ $TimeProf == 1 ]; then
 		duration=$(echo "$(date +%s.%N) - $start" | bc)
@@ -1569,9 +1660,9 @@ if [ $DrawFig == 1 ]; then
 	# 1) common dir for plotting non-bias related features
 	# 2) bias specific directory for plotting bias related features
 	if [[ ! -z $MappabilityFile && ! -z $RefFastaFile && ! -z $REFragFile ]]; then
-		$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/Analysis/InteractionPlots.r --IntFile $IntFileALLtoALL --CommonDir $DirALLtoALLBase'/Plots_Norm' --BiasSpecificDir $DirALLtoALL'/Plots_Norm' --MappThr 0.5 --GCThr 0.2 --cccol $cccol --OverWrite $OverWrite
+		$RScriptExec $home_dir/Analysis/InteractionPlots.r --IntFile $IntFileALLtoALL --CommonDir $DirALLtoALLBase'/Plots_Norm' --BiasSpecificDir $DirALLtoALL'/Plots_Norm' --MappThr 0.5 --GCThr 0.2 --cccol $cccol --OverWrite $OverWrite
 	else
-		$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/Analysis/InteractionPlots.r --IntFile $IntFileALLtoALL --CommonDir $DirALLtoALLBase'/Plots_Norm' --BiasSpecificDir $DirALLtoALL'/Plots_Norm' --MappThr 0.5 --GCThr 0.2 --cccol $cccol --OverWrite $OverWrite --NoMappGC
+		$RScriptExec $home_dir/Analysis/InteractionPlots.r --IntFile $IntFileALLtoALL --CommonDir $DirALLtoALLBase'/Plots_Norm' --BiasSpecificDir $DirALLtoALL'/Plots_Norm' --MappThr 0.5 --GCThr 0.2 --cccol $cccol --OverWrite $OverWrite --NoMappGC
 	fi
 
 	if [ $TimeProf == 1 ]; then
@@ -1679,11 +1770,12 @@ while [[ $CurrIntType -le $IntHigh ]]; do
 	if [[ ! -f $CurrIntFileSortDist || $OverWrite == 1 ]]; then
 
 		# old code - sourya
-		awk -F['\t'] -v OFS='\t' 'function abs(v) {return v < 0 ? -v : v} {print $0"\t"abs($5-$2)}' $CurrIntFile | sort -k${coln},${coln}n -k${cccol},${cccol}nr | cut -f1-${totcol} - > $CurrIntFileSortDist	
+		# awk -F['\t'] -v OFS='\t' 'function abs(v) {return v < 0 ? -v : v} {print $0"\t"abs($5-$2)}' $CurrIntFile | sort -k${coln},${coln}n -k${cccol},${cccol}nr | cut -f1-${totcol} - > $CurrIntFileSortDist	
 
 		# new code - sourya
 		# distance specific locus pair extract + sorted by genomic distance
-		# $RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/src/Interaction_Sort_Genomic_Distance.r $CurrIntFile $CurrIntFileSortDist
+		## also supports circular genomes and corresponding distance calculations
+		$RScriptExec $home_dir/src_fithichip_updated/Interaction_Sort_Genomic_Distance.r $CurrIntFile $CurrIntFileSortDist $CircularGenome $ChrSizeFile $cccol
 
 		if [[ $TimeProf == 1 ]]; then
 			duration=$(echo "$(date +%s.%N) - $start" | bc)
@@ -1737,6 +1829,9 @@ while [[ $CurrIntType -le $IntHigh ]]; do
 	FitHiC_Pass1_outfile=$GenFitHiCDir'/'$PREFIX'.interactions_FitHiC.bed'
 	FitHiC_Pass1_Filtfile=$GenFitHiCDir'/'$PREFIX'.interactions_FitHiC_Q'${QVALUE}'.bed'	
 	FitHiC_Pass1_LogQ_file=$GenFitHiCDir'/'$PREFIX'.interactions_FitHiC_Q'${QVALUE}'_WashU.bed'
+	temp_FitHiC_Pass1_Filtfile_UCSC=$GenFitHiCDir'/'$PREFIX'.interactions_FitHiC_Q'${QVALUE}'_UCSC_temp.bed'
+	FitHiC_Pass1_Filtfile_UCSC=$GenFitHiCDir'/'$PREFIX'.interactions_FitHiC_Q'${QVALUE}'_UCSC.bed'
+	FitHiC_Pass1_Filtfile_IGV=$GenFitHiCDir'/'$PREFIX'.interactions_FitHiC_Q'${QVALUE}'_IGV.bedpe'
 
 	# directory containing the interactions created by merging close contacts
 	MergeIntDir=$GenFitHiCDir'/Merge_Nearby_Interactions'
@@ -1744,12 +1839,15 @@ while [[ $CurrIntType -le $IntHigh ]]; do
 
 	FitHiC_Pass1_Filt_MergedIntfile=$MergeIntDir'/'$PREFIX'.interactions_FitHiC_Q'${QVALUE}'_MergeNearContacts.bed'
 	FitHiC_Pass1_Filt_MergedInt_LogQ_file=$MergeIntDir'/'$PREFIX'.interactions_FitHiC_Q'${QVALUE}'_MergeNearContacts_WashU.bed'
+	temp_FitHiC_Pass1_Filt_MergedIntfile_UCSC=$MergeIntDir'/'$PREFIX'.interactions_FitHiC_Q'${QVALUE}'_MergeNearContacts_UCSC_temp.bed'
+	FitHiC_Pass1_Filt_MergedIntfile_UCSC=$MergeIntDir'/'$PREFIX'.interactions_FitHiC_Q'${QVALUE}'_MergeNearContacts_UCSC.bed'
+	FitHiC_Pass1_Filt_MergedIntfile_IGV=$MergeIntDir'/'$PREFIX'.interactions_FitHiC_Q'${QVALUE}'_MergeNearContacts_IGV.bedpe'
 
 	if [[ ! -f $FitHiC_Pass1_outfile || $OverWrite == 1 ]]; then		
 		if [[ $currdirname == $DirPeaktoALL ]]; then			
-			$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/src/FitHiC_SigInt.r --InpFile $CurrIntFileSortDist --headerInp --OutFile $FitHiC_Pass1_outfile --CoverageFile $CoverageBiasFile --BinSize $BIN_SIZE --P2P $UseP2PBackgrnd --IntType $CurrIntType --UseNonzeroContacts $UseNonzeroContacts --BiasCorr $BiasCorr --BiasType $BiasType --BiasLowThr $biaslowthr --BiasHighThr $biashighthr --Draw --cccol $cccol --BiasFilt $BeginBiasFilter --MultBias $MultBias --Resid $resid_biascorr --EqOcc $eqocc_biascorr
+			$RScriptExec $home_dir/src_fithichip_updated/FitHiC_SigInt.r --InpFile $CurrIntFileSortDist --headerInp --OutFile $FitHiC_Pass1_outfile --CoverageFile $CoverageBiasFile --BinSize $BIN_SIZE --P2P $UseP2PBackgrnd --IntType $CurrIntType --UseNonzeroContacts $UseNonzeroContacts --BiasCorr $BiasCorr --BiasType $BiasType --BiasLowThr $biaslowthr --BiasHighThr $biashighthr --Draw --cccol $cccol --BiasFilt $BeginBiasFilter --MultBias $MultBias --Resid $resid_biascorr --EqOcc $eqocc_biascorr
 		else
-			$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/src/FitHiC_SigInt.r --InpFile $CurrIntFileSortDist --headerInp --OutFile $FitHiC_Pass1_outfile --CoverageFile $CoverageBiasFile --BinSize $BIN_SIZE --P2P 0 --IntType $CurrIntType --UseNonzeroContacts $UseNonzeroContacts --BiasCorr $BiasCorr --BiasType $BiasType --BiasLowThr $biaslowthr --BiasHighThr $biashighthr --Draw --cccol $cccol --BiasFilt $BeginBiasFilter --MultBias $MultBias --Resid $resid_biascorr --EqOcc $eqocc_biascorr
+			$RScriptExec $home_dir/src_fithichip_updated/FitHiC_SigInt.r --InpFile $CurrIntFileSortDist --headerInp --OutFile $FitHiC_Pass1_outfile --CoverageFile $CoverageBiasFile --BinSize $BIN_SIZE --P2P 0 --IntType $CurrIntType --UseNonzeroContacts $UseNonzeroContacts --BiasCorr $BiasCorr --BiasType $BiasType --BiasLowThr $biaslowthr --BiasHighThr $biashighthr --Draw --cccol $cccol --BiasFilt $BeginBiasFilter --MultBias $MultBias --Resid $resid_biascorr --EqOcc $eqocc_biascorr
 		fi
 		echo '******** FINISHED calling significant interactions'
 	fi
@@ -1791,7 +1889,7 @@ while [[ $CurrIntType -le $IntHigh ]]; do
 	# generate distance vs CC plots
 	if [[ $nsigFitHiC -gt 1 ]]; then
 		DistPlotfile=$GenFitHiCDir'/'$PREFIX'.interactions_FitHiC_Q'${QVALUE}'_Dist_CC.png'	
-		$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/Analysis/Distance_vs_CC.r --IntFile $FitHiC_Pass1_Filtfile --OutFile $DistPlotfile	
+		$RScriptExec $home_dir/Analysis/Distance_vs_CC.r --IntFile $FitHiC_Pass1_Filtfile --OutFile $DistPlotfile	
 	fi
 
 	if [ $DrawFig == 1 ]; then
@@ -1800,17 +1898,22 @@ while [[ $CurrIntType -le $IntHigh ]]; do
 		# separated by the Q value threshold of 0.01
 		# check for non empty interactions file
 		if [[ $nsigFitHiC -gt 1 ]]; then
-			$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/Analysis/result_summary.r $FitHiC_Pass1_outfile $cccol $QVALUE
+			$RScriptExec $home_dir/Analysis/result_summary.r $FitHiC_Pass1_outfile $cccol $QVALUE
 			echo 'derived contact count distribution for significant and non-significant interactions'
 		else
 			echo 'Number of significant spline interaction <= 1 - no result summary'
 		fi
 	fi
 
-	# create WashU epigenome browser compatible session file for FitHiChIP significant interactions
+	## create various epigenome browser compatible files 
+	## for FitHiChIP significant interactions
 	if [[ $nsigFitHiC -gt 1 ]]; then
+
+		##==========
+		# create WashU epigenome browser compatible file for FitHiChIP significant interactions
 	    # compatible with the new WashU browser (or generally applicable)
 	    # converts into a tabix formatted gzipped file
+	    ##==========
 	    awk -F['\t'] '{if (NR > 1) {if ($NF > 0) {print $1"\t"(($2+$3)/2-1)"\t"(($2+$3)/2+1)"\t"$4":"(($5+$6)/2-1)"-"(($5+$6)/2+1)","(-log($NF)/log(10))"\t"(NR-1)"\t."} else {print $1"\t"(($2+$3)/2-1)"\t"(($2+$3)/2+1)"\t"$4":"(($5+$6)/2-1)"-"(($5+$6)/2+1)",500\t"(NR-1)"\t."}}}' $FitHiC_Pass1_Filtfile | sort -k1,1 -k2,2n > $FitHiC_Pass1_LogQ_file
 	    if [ -f $FitHiC_Pass1_LogQ_file'.gz' ]; then
 	    	rm $FitHiC_Pass1_LogQ_file'.gz'
@@ -1821,8 +1924,22 @@ while [[ $CurrIntType -le $IntHigh ]]; do
 	    bgzip $FitHiC_Pass1_LogQ_file
 	    tabix -f -p bed $FitHiC_Pass1_LogQ_file'.gz'
 		echo 'generated WashU epigenome browser compatible significant interactions'
+
+		##==========
+		## create UCSC browser compatible file 
+		##==========
+		ColorStr="#0000FF"		
+		awk -F'[\t]' -v c="$ColorStr" '{if (NR>1) {if ($NF>0) {a=int(-log($NF)/log(10)) + 1} else {a=500}; print $1"\t"(($2+$3)/2-1)"\t"(($5+$6)/2+1)"\t.\t"a"\t"$7"\t.\t"c"\t"$1"\t"(($2+$3)/2-1)"\t"(($2+$3)/2+1)"\t.\t.\t"$4"\t"(($5+$6)/2-1)"\t"(($5+$6)/2+1)"\t.\t."}}' $FitHiC_Pass1_Filtfile | sort -k1,1 -k2,2n -k3,3n > $temp_FitHiC_Pass1_Filtfile_UCSC
+		${bedToBigBedExec} -as=${interact_as_file} -type=bed5+13 ${temp_FitHiC_Pass1_Filtfile_UCSC} $ChrSizeFile ${FitHiC_Pass1_Filtfile_UCSC}
+		rm ${temp_FitHiC_Pass1_Filtfile_UCSC}
+
+		##==========
+		## create IGV compatible bedpe file
+		##==========
+		awk -F['\t'] 'function min(x,y) {return x < y ? x : y} {if (NR > 1) {if ($NF > 0) {x=min(500,-log($NF)/log(10))} else {x=500}; print $1"\t"(($2+$3)/2-1)"\t"(($2+$3)/2+1)"\t"$4"\t"(($5+$6)/2-1)"\t"(($5+$6)/2+1)"\t-\t"x"\t.\t."}}' $FitHiC_Pass1_Filtfile | sort -k1,1 -k2,2n -k5,5n > $FitHiC_Pass1_Filtfile_IGV
+
 	else
-		echo 'There is no significant interaction - so no WashU specific session file is created !!'
+		echo 'There is no significant interaction - so no epigenome browser specific files were created !!'
 	fi
 
 	if [ $TimeProf == 1 ]; then
@@ -1857,9 +1974,13 @@ while [[ $CurrIntType -le $IntHigh ]]; do
 			fi
 
 			if [[ $nint -gt 1 ]]; then
+
+				##==========
+				## create WashU browser compatible file 
 				# 9th field stores the Q value
 			    # compatible with the new WashU browser (or generally applicable)
 			    # converts into a tabix formatted gzipped file
+			    ##==========
 			    awk -F['\t'] '{if (NR > 1) {if ($9 > 0) {print $1"\t"(($2+$3)/2-1)"\t"(($2+$3)/2+1)"\t"$4":"(($5+$6)/2-1)"-"(($5+$6)/2+1)","(-log($9)/log(10))"\t"(NR-1)"\t."} else {print $1"\t"(($2+$3)/2-1)"\t"(($2+$3)/2+1)"\t"$4":"(($5+$6)/2-1)"-"(($5+$6)/2+1)",500\t"(NR-1)"\t."}}}' $FitHiC_Pass1_Filt_MergedIntfile | sort -k1,1 -k2,2n > $FitHiC_Pass1_Filt_MergedInt_LogQ_file
 			    if [ -f $FitHiC_Pass1_Filt_MergedInt_LogQ_file'.gz' ]; then
 			    	rm $FitHiC_Pass1_Filt_MergedInt_LogQ_file'.gz'
@@ -1867,14 +1988,28 @@ while [[ $CurrIntType -le $IntHigh ]]; do
 			    bgzip $FitHiC_Pass1_Filt_MergedInt_LogQ_file
 			    tabix -f -p bed $FitHiC_Pass1_Filt_MergedInt_LogQ_file'.gz'
 
+				##==========
+				## create UCSC browser compatible file 
+				##==========
+				ColorStr="#0000FF"		
+				awk -F'[\t]' -v c="$ColorStr" '{if (NR>1) {if ($9>0) {a=int(-log($9)/log(10)) + 1} else {a=500}; print $1"\t"(($2+$3)/2-1)"\t"(($5+$6)/2+1)"\t.\t"a"\t"$7"\t.\t"c"\t"$1"\t"(($2+$3)/2-1)"\t"(($2+$3)/2+1)"\t.\t.\t"$4"\t"(($5+$6)/2-1)"\t"(($5+$6)/2+1)"\t.\t."}}' $FitHiC_Pass1_Filt_MergedIntfile | sort -k1,1 -k2,2n -k3,3n > $temp_FitHiC_Pass1_Filt_MergedIntfile_UCSC
+				${bedToBigBedExec} -as=${interact_as_file} -type=bed5+13 ${temp_FitHiC_Pass1_Filt_MergedIntfile_UCSC} $ChrSizeFile ${FitHiC_Pass1_Filt_MergedIntfile_UCSC}
+				rm ${temp_FitHiC_Pass1_Filt_MergedIntfile_UCSC}
+
+				##==========
+				## create IGV compatible bedpe file
+				##==========
+				awk -F['\t'] 'function min(x,y) {return x < y ? x : y} {if (NR > 1) {if ($9 > 0) {x=min(500,-log($9)/log(10))} else {x=500}; print $1"\t"(($2+$3)/2-1)"\t"(($2+$3)/2+1)"\t"$4"\t"(($5+$6)/2-1)"\t"(($5+$6)/2+1)"\t-\t"x"\t.\t."}}' $FitHiC_Pass1_Filt_MergedIntfile | sort -k1,1 -k2,2n -k5,5n > $FitHiC_Pass1_Filt_MergedIntfile_IGV				
+
+				##==========
 				# generate distance vs CC plots
 				DistPlotfile=$MergeIntDir'/'$PREFIX'.interactions_FitHiC_Q'${QVALUE}'_MergeNearContacts_Dist_CC.png'
-				$RScriptExec /gpfs/share/apps/fithichip/FitHiChIP/Analysis/Distance_vs_CC.r --IntFile $FitHiC_Pass1_Filt_MergedIntfile --OutFile $DistPlotfile	
+				$RScriptExec $home_dir/Analysis/Distance_vs_CC.r --IntFile $FitHiC_Pass1_Filt_MergedIntfile --OutFile $DistPlotfile	
 
 			else
-				echo 'Merge filtering could not produce any significant interactions - so no WashU specific session file is created !!'
+				echo 'Merge filtering could not produce any significant interactions - so no epigenome browser specific files were created !!'
 			fi
-			echo 'Merged filtering significant interactions - created washu browser compatible file for these interactions!!!'
+			echo 'Merged filtering significant interactions - created various epigenome browser compatible files for these interactions!!!'
 		fi
 	fi
 
@@ -1887,7 +2022,7 @@ done 	# end of different types of interaction traversal loop
 #=================================
 # call a separate script which summarizes all the output files and their location
 echo -e "\n **** Now summarizing FitHiChIP results in the HTML file *** \n"
-bash /gpfs/share/apps/fithichip/FitHiChIP/Analysis/SummaryFitHiChIP.sh $OutDir $BIN_SIZE $LowDistThres $UppDistThres $IntType $BiasCorr $BiasType $UseP2PBackgrnd $MergeInteraction $PREFIX ${QVALUE}
+bash $home_dir/Analysis/SummaryFitHiChIP.sh $OutDir $BIN_SIZE $LowDistThres $UppDistThres $IntType $BiasCorr $BiasType $UseP2PBackgrnd $MergeInteraction $PREFIX ${QVALUE}
 
 #=================================
 

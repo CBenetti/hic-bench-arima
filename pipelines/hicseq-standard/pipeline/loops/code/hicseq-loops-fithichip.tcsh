@@ -43,7 +43,7 @@ sed -e "s|mindist|$mindist|" \
 
 
 #submit job 
-set jid = `sbatch --output="$job_dir/job.out" --error="$job_dir/job.err" ./code/FitHiChIP_HiCPro.sh $outdir/config-FitHiChIP-custom`
+set jid = `sbatch --output="$job_dir/job.out" --error="$job_dir/job.err" ./code/FitHiChIP_HiCPro.sh -C $outdir/config-FitHiChIP-custom`
 set jid = `echo $jid | sed 's/.* //'`
 echo $jid >! $job_dir/job.id
 echo "Waiting for job array [$jid] to complete..." | scripts-send2err
