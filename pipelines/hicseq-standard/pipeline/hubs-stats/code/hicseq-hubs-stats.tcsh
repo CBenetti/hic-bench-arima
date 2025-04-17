@@ -19,7 +19,7 @@ set objects = ($4)
 if ($#objects>1) then
   send2err "Error: this operation is not implemented for multi-object grouping."
   exit 1
-else 
+else
   set object = $objects[1]
 endif
 
@@ -43,10 +43,10 @@ if ($tool == fithic) then
 
 	else if ( $bias_corrected == "FALSE" && $cpm_normalized == "TRUE" ) then
 		set inputLoops = "loops_unfiltered_nobias_cpm"
-		
+
 	else if ( $bias_corrected == "TRUE" && $cpm_normalized == "FALSE" ) then
 		set inputLoops = "loops_unfiltered_bias_raw"
-	
+
 	else if ( $bias_corrected == "FALSE" && $cpm_normalized == "FALSE" ) then
 		set inputLoops = "loops_unfiltered_nobias_raw"
 	else
@@ -55,17 +55,18 @@ if ($tool == fithic) then
 	echo "bedpe input file is: $inputLoops"
 
 	### annotate bedpe anchors (EE, PP, EP, PE) and generate v5cFormat file ###
-	
+	if ( -f $branch/$object/loops_labeled_qval.bedpe ) then
+		cp $branch/$object/loops_labeled_qval.bedpe $outdir/loops_labeled_qval.bedpe
+	else
 	## filter loops ##
 	# create uncompressed version of unfiltered loops
-	echo "Uncompressing unfiltered loops..." | scripts-send2err
-	cat $branch/$object/$inputLoops.tsv.gz | gunzip >! ${outdir}/$inputLoops.tsv
-	awk 'NR>1' ${outdir}/$inputLoops.tsv | cut -f 7 >! ${outdir}/qval.txt
-	rm -f ${outdir}/$inputLoops.tsv
-	
-	cat $branch/$object/$inputLoops.bedpe.gz | gunzip >! ${outdir}/$inputLoops.bedpe	
-	paste ${outdir}/$inputLoops.bedpe ${outdir}/qval.txt >! ${outdir}/loops_labeled_qval.bedpe
-
+		echo "Uncompressing unfiltered loops..." | scripts-send2err
+		cat $branch/$object/$inputLoops.tsv.gz | gunzip >! ${outdir}/$inputLoops.tsv
+		awk 'NR>1' ${outdir}/$inputLoops.tsv | cut -f 7 >! ${outdir}/qval.txt
+		rm -f ${outdir}/$inputLoops.tsv
+		cat $branch/$object/$inputLoops.bedpe.gz | gunzip >! ${outdir}/$inputLoops.bedpe
+		paste ${outdir}/$inputLoops.bedpe ${outdir}/qval.txt >! ${outdir}/loops_labeled_qval.bedpe
+	endif
 	awk -v m=${min_anchordist} -v M=${max_anchordist} -v c=${min_activity} -v mqval=${min_qvalue} '($5-$2)>=m && ($5-$2)<=M && $7>=c && $8 <= mqval' ${outdir}/loops_labeled_qval.bedpe | cut -f 1-7 > ${outdir}/loops_labeled.bedpe
 	set bedpe = ${outdir}/loops_labeled.bedpe
 	set bedpe2V5C_outdir = ${outdir}/bedpe2V5C
@@ -73,7 +74,8 @@ if ($tool == fithic) then
 	set inpfile = $outdir/bedpe2V5C/all_loops_wRev_v5cFormat.csv
 	rm -f ${outdir}/$inputLoops.bedpe
 else
-	set inpfile = $branch/$object/virtual-5C_top200k.csv
+#	set inpfile = $branch/$object/virtual-5C_top200K.csv
+	set inpfile = $branch/$object/virtual-5C.csv
 endif
 echo "preliminary step"
 cat $inpfile | tr ',' '\t' | code/code.main/scripts-skipn 1 | awk -v D=$min_anchordist '$6>=D || $6<=-D' | sort -k8,8rg | awk -v Q="$min_qvalue" -v C="$min_activity" '$12 < Q && $8 >=C' | sort >! $outdir/loops.tsv   # apply loop filters
@@ -126,7 +128,8 @@ cat p.sum_exclusivity.tsv | sed 's/TSS_//' | sort -k2,2rg >! genes.ranked-by-e-e
 # -------------------------------------
 
 # clean up
-rm -f qval.txt loops_labeled* loops.tsv
+#rm -f qval.txt loops_labeled* loops.tsv
+rm -f qval.txt loops_labeled*
 mv bedpe2V5C/topLoops.bedpe finalLoops.bedpe
 
 rm -fr bedpe2V5C

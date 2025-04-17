@@ -3,8 +3,8 @@
 source ./inputs/params/params.tcsh
 
 set chrom_excluded = 'chr[MY]'                                  # excluded chromosomes
-set viewpoints_file = ./params/tss_k27ac.bed     # bed file: list of coordinates to be used as viewpoints
-set anchors_file = ./params/tss_k27ac.bed 		    	# bed file: list of target anchors (e.g. enhancers)
+set viewpoints_file = ../hubs-stats/params/viewpoints.bed     # bed file: list of coordinates to be used as viewpoints
+set anchors_file = ../hubs-stats/params/viewpoints.bed 		    	# bed file: list of target anchors (e.g. enhancers)
 
 set resolution = 5000                                           # resolution (bp)
 set maxdist = 1000000                                           # maximum distance from viewpoint (bp)
