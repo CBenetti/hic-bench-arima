@@ -118,7 +118,7 @@ else if ($enzyme == "hicpro") then
     set valid_pairs = ($valid_pairs `ls -1 $branch/$obj/*gz | grep -i validpairs`)
   end
   scripts-send2err "Converting validPairs.txt to filtered.reg format..."
-  cat $valid_pairs | gunzip | tools-cols -t 0 1 3 2 2 4 6 5 5 | tr '\t' ' ' | sed 's/ /\t/' >! $outdir/filtered.reg            # NOTE: can we filter by mapq here????
+  cat $valid_pairs | gunzip | tools-cols -t 0 1 5 2 2 3 6 4 4 | tr '\t' ' ' | sed 's/ /\t/' >! $outdir/filtered.reg            # NOTE: can we filter by mapq here????
   set n_reads = `cat $outdir/filtered.reg | wc -l`
   set n_intra = `cat $outdir/filtered.reg | awk '$2==$6' | wc -l`
   set n_inter = $n_reads
