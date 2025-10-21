@@ -11,6 +11,7 @@ set maxdist = 10000000								# maximum distance cutoff
 set top_loops = FALSE								# subset the top loops (cpm-ranked)
 set macs = '--nomodel --extsize 147 -q 0.01'    				# macs2 parameters used in PeakInferHiChIP    
 set fithichip_config = /params/menu/configfile_BiasCorrection_CoverageBias
-
+set peak_type = "broad" #broad or narrow
+set macs_genome = "hs" #Available shortcuts of effective genome sizes are mm,hs,dm,ce
 #/inputs/config-FitHiChIP/configfile_BiasCorrection_CoverageBias 			# config file for fithichip when hicpro is used 
 #/params/menu/configfile_BiasCorrection_CoverageBias 			# config file for fithichip when MAPS is used 

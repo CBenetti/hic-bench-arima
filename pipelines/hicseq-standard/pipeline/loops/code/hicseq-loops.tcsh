@@ -47,6 +47,7 @@ else if ($tool == fithichip) then
 	else 
 		set branch_short = `echo $branch | cut -d'/' -f4-`
 		set files = `find ../tracks/* | grep -c "$branch_short"`
+		set align_dir = `echo $branch | cut -f 5 -d"/"`
 		echo $files
 		if(`echo $branch | cut -f 5 -d"/"` == "MAPS.by_sample.MAPSv2" && $files > 0) then
 			scripts-create-path "$outdir/PeakInferHiChIP/MACS2_ExtSize/"
@@ -67,7 +68,37 @@ else if ($tool == fithichip) then
 			paste ${outdir}/loops_filtered_nobias_cpm.bedpe ${outdir}/qval.txt >! ${outdir}/loops_labeled_qval.bedpe
 			cp $outdir/FitHiChIP/Summary_results_FitHiChIP.html $outdir/
 		else
-	      		echo "Error: Fithichip loop calling requires hic-pro or MAPS output." | scripts-send2err
+			scripts-create-path "$outdir/PeakInferHiChIP/MACS2_ExtSize/"
+                        module list
+			module unload r
+                        module unload python
+                        module load macs2/2.1.1
+			foreach obj ($objects)
+				set shortVIP_BAM = "../align/results/"$align_dir"/"$obj/"*.bam"
+	                        if ( $peak_type == "broad" ) then
+	                                macs2 callpeak -t $shortVIP_BAM -n $obj -g $macs_genome --broad --nolambda --broad-cutoff 0.3 --outdir $outdir/PeakInferHiChIP/MACS2_ExtSize/
+	                        else if ( $peak_type == "narrow" ) then
+	                                macs2 callpeak -t $shortVIP_BAM -n $obj -g $macs_genome --broad --broad-cutoff 0.2 --outdir $outdir/PeakInferHiChIP/MACS2_ExtSize/
+        	                endif
+			end
+			find "$outdir/PeakInferHiChIP/MACS2_ExtSize/" -type f -name '*Peak' -exec cat {} + >> $outdir/PeakInferHiChIP/MACS2_ExtSize/out_macs2_peaks.narrowPeak
+		        module unload macs2
+			module load python/cpu/3.6.5
+			module load r/3.6.1
+			sed -i 's/chr//g' $outdir/PeakInferHiChIP/MACS2_ExtSize/out_macs2_peaks.narrowPeak
+			set hic = `echo $objects | tr ' ' '\n' | awk -v d="../tracks/results/tracks.by_sample.juicer/$branch_short" '{print d"/"$0"/filtered.hic"}'`
+			echo $hic
+              		./code/hicseq-loops-fithichip.tcsh $outdir $params "$hic" $genome $branch "$objects"
+			awk '{if (NR>1) {if (substr($1,1,1) ~ /^[0-9]/ ) {print "chr"$1"\t"$2"\t"$3"\tchr"$4"\t"$5"\t"$6"\t"$7} else {print $0}}}' $outdir/FitHiChIP/FitHiChIP_Peak2ALL_b"$winsize"_L"$mindist"_U"$maxdist"/P2PBckgr_0/Coverage_Bias/FitHiC_BiasCorr/Merge_Nearby_Interactions/FitHiChIP.interactions_FitHiC_Q"$qval"_MergeNearContacts.bed > $outdir/loops_filtered_bias_raw.bedpe
+			awk 'NR>1' ${outdir}/FitHiChIP/FitHiChIP_Peak2ALL_b"$winsize"_L"$mindist"_U"$maxdist"/P2PBckgr_0/Coverage_Bias/FitHiC_BiasCorr/Merge_Nearby_Interactions/FitHiChIP.interactions_FitHiC_Q"$qval"_MergeNearContacts.bed | cut -f 9 >! ${outdir}/qval.txt
+			cp $outdir/loops_filtered_bias_raw.bedpe $outdir/loops_filtered_nobias_raw.bedpe
+			cat $reg_files | gunzip >! $outdir/filtered.reg
+			set intra_reads = `cat $outdir/filtered.reg | awk '$2 == $6' | wc -l`
+			awk -v var="$intra_reads" '{ print $1"\t"$2"\t"$3"\t"$4"\t"$5"\t"$6"\t"$7/(var/1000000) }' $outdir/loops_filtered_nobias_raw.bedpe >! $outdir/loops_filtered_nobias_cpm.bedpe
+			cp $outdir/loops_filtered_nobias_cpm.bedpe $outdir/loops_filtered_bias_cpm.bedpe
+			paste ${outdir}/loops_filtered_nobias_cpm.bedpe ${outdir}/qval.txt >! ${outdir}/loops_labeled_qval.bedpe
+			cp $outdir/FitHiChIP/Summary_results_FitHiChIP.html $outdir/
+	      		#echo "Error: Fithichip loop calling requires hic-pro or MAPS output." | scripts-send2err
 		endif
 	endif
 
