@@ -81,7 +81,7 @@ else if ($tool == fithichip) then
 	                                macs2 callpeak -t $shortVIP_BAM -n $obj -g $macs_genome --broad --broad-cutoff 0.2 --outdir $outdir/PeakInferHiChIP/MACS2_ExtSize/
         	                endif
 			end
-			find "$outdir/PeakInferHiChIP/MACS2_ExtSize/" -type f -name '*Peak' -exec cat {} + >> $outdir/PeakInferHiChIP/MACS2_ExtSize/out_macs2_peaks.narrowPeak
+			find "$outdir/PeakInferHiChIP/MACS2_ExtSize/" -type f -name '*broadPeak' -exec cat {} + >> $outdir/PeakInferHiChIP/MACS2_ExtSize/out_macs2_peaks.narrowPeak
 		        module unload macs2
 			module load python/cpu/3.6.5
 			module load r/3.6.1
