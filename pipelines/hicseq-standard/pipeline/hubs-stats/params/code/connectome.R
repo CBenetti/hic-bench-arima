@@ -15,6 +15,7 @@ if(length(total_peaks)>1){
 }
 total_peaks[,4] <- sprintf(paste0("%0", nchar(as.character(dim(total_peaks)[1])), "d"), 1:dim(total_peaks)[1])
 write.table(total_peaks,file="MAPS_peaks.broadPeak",sep="\t",row.names=F,col.names=F,quote=F) ##consider changing this if Arima Maps is not us>
+system("bedtools sort -i MAPS_peaks.broadPeak | bedtools merge -i - -d 5 > MAPS_peaks_merged.broadPeak")
 #First process the peaks as to bin them in 1Kb bins
 bin_peak <- function(x){
         m <- floor((as.numeric(x[2])+as.numeric(x[3]))/2)
@@ -28,7 +29,7 @@ bin_peak <- function(x){
 		options(scipen = 999)
                 return(paste(x[1],m-(res/2),m+((res/2)-1),paste("ENH_",x[4],sep=""),sep="\t"))}
 }
-l <- readLines("MAPS_peaks.broadPeak") ##consider changing this if you have changed the above
+l <- readLines("MAPS_peaks_merged.broadPeak") ##consider changing this if you have changed the above
 li <- strsplit(l,"\t")
 a <- lapply(li,bin_peak)
 cat(unlist(a),file="peaks.bed",sep="\n")

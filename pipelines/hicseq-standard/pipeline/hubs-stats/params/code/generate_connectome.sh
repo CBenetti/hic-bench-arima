@@ -1,6 +1,11 @@
-#!/bin/bash
+#!/bin/bash -l
+#SBATCH -J peakome
+#SBATCH --mem=50G
+#SBATCH --time=3:00:00
+#SBATCH -N 1
 module load r/4.4.1
 module load bedops/2.4.41
+module load bedtools/2.30.0
 Rscript code/connectome.R 1000
 sort-bed peaks.bed > peaks_tmp.bed
 awk -v OFS="\t" '{print $1,$2,$3,0,$4}' peaks_tmp.bed > peaks_sorted.bed

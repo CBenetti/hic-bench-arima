@@ -8,14 +8,14 @@ set genome_dir = inputs/genomes/hg19
 set winsize = 5000
 # set input data
 set k27ac = ./params/peaks_sorted.bed				# h3k27ac data (required)
-set tss = ./params/hubs-stats-tss.bed					# tss data (required)
+set tss = ./params/tss.bed					# tss data (required)
 set atac = "FALSE"						# accessibility data (optional)
 
 # set hub parameters
 set accessible_only = "FALSE"					# use enhancers and promoters that are accessible
 set tss_extension = 5000					# promoter length (upstream from TSS site)
 set promoter_k27ac_only = "TRUE"				# use promoters that have k27ac activity
-set k27ac_in_TSS_anchor = "TRUE"				# use k27ac peaks that fall in anchors with TSS sites 
+set k27ac_in_TSS_anchor = "FALSE"				# use k27ac peaks that fall in anchors with TSS sites 
 
 # set loop parameters
 set min_activity = 0						# minimum loop contact score (cpm)
