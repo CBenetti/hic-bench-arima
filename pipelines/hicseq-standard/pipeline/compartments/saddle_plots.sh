@@ -6,4 +6,4 @@
 
 
 module load r/4.3.2
-Rscript saddle_plots.R
+Rscript saddle_plots.R "$SAMPLE"

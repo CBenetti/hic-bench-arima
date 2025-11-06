@@ -5,19 +5,20 @@ import numpy as np
 import os
 
 # ---- 1. Get sample name from command-line argument ----
-if len(sys.argv) < 2:
-    print("Usage: python compute_coverage.py SAMPLE_NAME")
+if len(sys.argv) < 3:
+    print("Usage: python compute_coverage.py SAMPLE_NAME BRANCH")
     sys.exit(1)
 
-sample = sys.argv[1]  # e.g. "CELL-HEMATO-CEM-INTER_S1"
+sample = sys.argv[1]
+base_dir = sys.argv[2] #e.g. "results/tracks.by_sample.juicer_cool.multires/filter.by_sample.mapq_20_mindist0/align.by_sample.hicpro"
 
 # ---- 2. Base paths ----
-base_dir = "results/tracks.by_sample.juicer/filter.by_sample.mapq_30_mindist0/align.by_sample.hicpro"
+#base_dir = "results/tracks.by_sample.juicer_cool.multires/filter.by_sample.mapq_20_mindist0/align.by_sample.hicpro"
 sample_dir = os.path.join(base_dir, sample)
 mcool_path = os.path.join(sample_dir, "filtered.mcool")
 
 # ---- 3. Loop over resolutions ----
-for res in [10000, 25000, 100000]:
+for res in [40000, 100000]:
     print(f"\nProcessing {sample} at {res:,} bp resolution...")
 
     # Open cooler object
