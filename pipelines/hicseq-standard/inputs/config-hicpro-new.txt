@@ -36,6 +36,7 @@ PAIR2_EXT = _R2
 
 MIN_MAPQ = 20
 
+SAMTOOLS_PATH = /gpfs/share/apps/samtools/1.20/bin
 BOWTIE2_IDX_PATH = bowtie_idx_path
 BOWTIE2_GLOBAL_OPTIONS = bowtie_param_global
 BOWTIE2_LOCAL_OPTIONS = bowtie_param_local

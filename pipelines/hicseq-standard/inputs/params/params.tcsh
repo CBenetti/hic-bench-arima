@@ -2,10 +2,11 @@
 
 # load basic tools
 module unload r
-module unloar python
+module unload python
 module load r/3.6.1
 module load python/cpu/3.6.5
-module load samtools/1.9
+module unload samtools/1.9-new
+module load samtools/1.20
 module load bedtools/2.27.1
 module load java/1.8
 module load gsl/2.5
