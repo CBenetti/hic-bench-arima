@@ -5,15 +5,19 @@ module unload r
 module unload python
 module load r/3.6.1
 module load python/cpu/3.6.5
-module unload samtools/1.9-new
-module load samtools/1.20
 module load bedtools/2.27.1
 module load java/1.8
 module load gsl/2.5
 module load gtools/3.0.0
-
+samtools --version >& /dev/null
+if ( $status != 0 ) then
+    module unload samtools/1.20-new
+    module load samtools/1.9-new
+endif
 # load tools required for each step of the pipeline (this can be overriden in local param scripts)
 module load bowtie2/2.3.5.1
+
+
 
 # sample sheet file
 set sheet = inputs/sample-sheet.tsv

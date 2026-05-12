@@ -78,10 +78,10 @@ if ("$ext" == "fastq") then
   $aligner --threads $threads $align_params $input >! $outdir/alignments_all.sam
   set BAM = "$outdir/alignments_all.sam"
   scripts-send2err "Sorting alignments..."
-  samtools view -q $mapq -@ $threads -Sb1 $BAM | samtools sort -m 10G -@ $threads - $outdir/alignments_sorted
+  samtools view -q $mapq -@ $threads -b $BAM | samtools sort -m 4G -@ $threads -T $outdir/tmp_sort -o $outdir/alignments_sorted -
 else
   scripts-send2err "Sorting alignments..."
-  samtools sort -m 10G -@ $threads $BAM $outdir/alignments_sorted
+  samtools sort -m 4G -@ $threads -T $outdir/tmp_sort -o $outdir/alignments_sorted.bam $BAM
 endif
 
 # filter blacklist and chrM
@@ -101,7 +101,7 @@ endif
 
 # remove duplicate alignments
 scripts-send2err "Removing duplicates..."
-set picard_root = /local/apps/picard-tools/1.88
+set picard_root = /gpfs/share/apps/picard-tools/1.88
 java -Xms8G -Xmx16G -jar $picard_root/MarkDuplicates.jar \
  VERBOSITY=WARNING \
  QUIET=true \

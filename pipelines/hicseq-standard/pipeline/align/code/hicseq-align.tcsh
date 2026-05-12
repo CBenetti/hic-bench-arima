@@ -92,8 +92,8 @@ else if ($aligner == 'hicpro') then           ##run hic-pro
   module load r/4.0.3
   module unload python
   module load python/cpu/3.7.2
-  module unload samtools/1.9-new
-  module load samtools/1.20
+#  module unload samtools/1.9-new
+#  module load samtools/1.20
   module load hic-pro
   set object_dir = $fastq_dir/$object
 

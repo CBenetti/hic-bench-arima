@@ -81,7 +81,7 @@ tail -n +2 $outdir/annotated_peaks.txt | cut -f8 | cut -d '(' -f1 | sort | uniq 
 
 
 # plot the number of peaks per type
-module unload r; module load r/3.3.0
+module unload r; module load r/4.4.2
 
 Rscript --vanilla - $outdir $Peak_Type_Stats <<HERE
   ## R code
